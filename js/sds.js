@@ -50,6 +50,8 @@ async function loadCompound() {
     }
     menu = [];
     headingIdCounter = 0;
+    translated = false;
+    acc = "";
 
     if (!name) {
         result.innerHTML = `<p class="error">โปรดกรอกชื่อสารเคมีเป็นภาษาอังกฤษ หรือ CAS Number หรือ สูตรเคมี เช่น CH3CH3NH2.</p>`;
@@ -379,8 +381,36 @@ function renderStringWithMarkup(item) {
 
     const p = document.createElement("p");
     p.innerHTML = fragments.join("");
+    if (looksLikeChemicalNotation(raw)) {
+        p.classList.add("notranslate");
+        p.setAttribute("translate", "no");
+    }
     block.appendChild(p);
     return block;
+}
+
+function looksLikeChemicalNotation(text = "") {
+    const t = text.trim();
+
+    // CAS เช่น 64-17-5
+    const casPattern = /^\d{2,7}-\d{2}-\d$/;
+
+    // สูตร/SMILES แบบหยาบ ๆ
+    const chemicalPattern = /^[A-Za-z0-9@+\-\[\]\(\)=#$\\/%.,:;]+$/;
+
+    // keyword ที่ไม่ควรแปล
+    const protectedWords = [
+        "SMILES", "InChI", "InChIKey", "CID", "CAS", "UNII",
+        "Formula", "Molecular Formula"
+    ];
+
+    if (protectedWords.some(word => t.includes(word))) return true;
+    if (casPattern.test(t)) return true;
+
+    // ข้อความสั้น ๆ ที่เป็น chemical notation
+    if (t.length <= 120 && chemicalPattern.test(t)) return true;
+
+    return false;
 }
 
 function makeSafeId(text) {
