@@ -28,7 +28,7 @@ function updateQuery(query) {
     const printCommand = urlParams.get('print');
     const translateCommand = urlParams.get('translate');
     if (!printCommand && !translateCommand) {
-        window.history.pushState({}, "", "?q="+query);
+        window.history.pushState({}, "", "?q="+encodeURIComponent(query));
     }
 }
 
@@ -543,5 +543,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function printPage() {
     q = document.getElementById("chemical_name").value
-    window.location.href=`/sds-print/?q=${q}&print=yes&translate=${translated ? "yes" : "no"}`
+    window.location.href=`/sds-print/?q=${encodeURIComponent(q)}&print=yes&translate=${translated ? "yes" : "no"}`
 }
