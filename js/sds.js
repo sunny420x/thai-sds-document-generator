@@ -4,7 +4,7 @@ let translated = false
 const urlParams = new URLSearchParams(window.location.search);
 
 //Get query param and load compound.
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const query = urlParams.get('q');
     if (query) {
         const inputField = document.getElementById("chemical_name");
@@ -17,18 +17,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
 //Handle enter press event on chemical name input.
 var chemical_name_input = document.getElementById("chemical_name");
-chemical_name_input.addEventListener("keypress", function(event) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    loadCompound();
-  }
-});
+if (chemical_name_input) {
+    chemical_name_input.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            loadCompound();
+        }
+    });
+}
+
+//Handle submit button
+if (document.getElementById("chemical_search_btn")) {
+    var chemical_search_btn = document.getElementById("chemical_search_btn");
+    chemical_search_btn.addEventListener('click', () => {
+        loadCompound()
+    });
+}
 
 function updateQuery(query) {
     const printCommand = urlParams.get('print');
     const translateCommand = urlParams.get('translate');
     if (!printCommand && !translateCommand) {
-        window.history.pushState({}, "", "?q="+encodeURIComponent(query));
+        window.history.pushState({}, "", "?q=" + encodeURIComponent(query));
     }
 }
 
@@ -37,14 +47,16 @@ async function loadCompound() {
     const menuList = document.getElementById("menuList");
     const name = document.getElementById("chemical_name").value.trim();
 
-    if(document.getElementById("menuElement")) {
+    if (document.getElementById("menuElement")) {
         document.getElementById("menuElement").style.display = "block"
     }
 
     //Dynamically update query param.
     updateQuery(name);
 
-    result.innerHTML = "";
+    if (result) {
+        result.innerHTML = "";
+    }
     if (menuList) {
         menuList.innerHTML = "";
     }
@@ -53,13 +65,15 @@ async function loadCompound() {
     translated = false;
     acc = "";
 
-    if (!name) {
+    if (!name && result) {
         result.innerHTML = `<p class="error">โปรดกรอกชื่อสารเคมีเป็นภาษาอังกฤษ หรือ CAS Number หรือ สูตรเคมี เช่น CH3CH3NH2.</p>`;
         return;
     }
 
     try {
-        result.innerHTML = `<p class="loading">กำลังค้นหา CID จาก PubChem...</p>`;
+        if (result) {
+            result.innerHTML = `<p class="loading">กำลังค้นหา CID จาก PubChem...</p>`;
+        }
 
         const cidRes = await fetch(
             `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/cids/JSON`
@@ -70,7 +84,9 @@ async function loadCompound() {
         const cid = cidJson?.IdentifierList?.CID?.[0];
         if (!cid) throw new Error("ไม่พบผลการค้นหา CID");
 
-        result.innerHTML = `<p class="loading">Loading full compound record for CID ${cid}...</p>`;
+        if (result) {
+            result.innerHTML = `<p class="loading">Loading full compound record for CID ${cid}...</p>`;
+        }
 
         const recordRes = await fetch(
             `https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/${cid}/JSON/?response_type=display`
@@ -78,29 +94,42 @@ async function loadCompound() {
         if (!recordRes.ok) throw new Error("พบปัญหาในการดึงข้อมูลจาก PubChem");
 
         const data = await recordRes.json();
+        const isOfficial = urlParams.get('official') === "yes";
 
-        renderRecord(data, result);
+        if (isOfficial) {
+            const record = data?.Record;
+            const sdsData = buildSdsData(record);
+
+            populatePrintSds(sdsData, record);
+
+            document.getElementById("composition_table").innerHTML =
+                renderCompositionTable(sdsData);
+        } else {
+            renderRecord(data, result);
+        }
 
         //Check and add onclick attribute.
-        if(document.getElementById('translateBtn')) {
-            if(!document.getElementById('translateBtn').hasAttribute('onclick')) {
+        if (document.getElementById('translateBtn')) {
+            if (!document.getElementById('translateBtn').hasAttribute('onclick')) {
                 document.getElementById('translateBtn').setAttribute("onclick", "setTimeout(triggerTranslateEnglishThenThai, 1000)");
             }
         }
-        if(document.getElementById('printPageBtn')) {
-            if(!document.getElementById('printPageBtn').hasAttribute('onclick')) {
+        if (document.getElementById('printPageBtn')) {
+            if (!document.getElementById('printPageBtn').hasAttribute('onclick')) {
                 document.getElementById('printPageBtn').setAttribute("onclick", "printPage()");
             }
         }
     } catch (err) {
         console.error(err);
-        result.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
+        if (result) {
+            result.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
+        }
     }
 }
 
 function renderRecord(data, container) {
     const record = data?.Record;
-    if (!record) {
+    if (!record && container) {
         container.innerHTML = `<p class="error">ไม่พบข้อมูลสารเคมีดังกล่าว โปรดตรวจสอบความถูกต้องอีกครั้ง</p>`;
         return;
     }
@@ -114,13 +143,15 @@ function renderRecord(data, container) {
           CID: ${escapeHtml(String(record.RecordNumber || ""))}
         </div>
       `;
-    container.innerHTML = "";
-    container.setAttribute("lang", "en");
-    container.appendChild(header);
+    if (container) {
+        container.innerHTML = "";
+        container.setAttribute("lang", "en");
+        container.appendChild(header);
 
-    (record.Section || []).forEach(section => {
-        container.appendChild(renderSection(section, 2));
-    });
+        (record.Section || []).forEach(section => {
+            container.appendChild(renderSection(section, 2));
+        });
+    }
 
     createMenu();
 }
@@ -208,7 +239,7 @@ function renderInformation(info) {
             ul.appendChild(li);
         });
 
-        if(!urlParams.get('print')) {
+        if (!urlParams.get('print')) {
             const details = document.createElement("details");
             details.innerHTML = `<summary>References (${info.Reference.length})</summary>`;
 
@@ -225,16 +256,168 @@ function renderInformation(info) {
     }
 
     if (info.Value) {
-        const valueNode = renderValue(info.Value);
+        let valueNode;
 
-        if (info.Name === "Standard non-polar" || info.Name === "Semi-standard non-polar" || info.Name === "Standard polar") {
+        // กลุ่ม hazard classification ใช้ renderer พิเศษ
+        if (isHazardInfo(info.Name)) {
+            valueNode = renderHazardValue(info);
+        }
+
+        // fallback ปกติ
+        if (!valueNode) {
+            valueNode = renderValue(info.Value);
+        }
+
+        // inline layout สำหรับค่ามาตรฐาน
+        if (
+            info.Name === "Standard non-polar" ||
+            info.Name === "Semi-standard non-polar" ||
+            info.Name === "Standard polar"
+        ) {
             valueNode.classList.add("stay-inline");
         }
 
         div.appendChild(valueNode);
     }
-
     return div;
+}
+
+function isHazardInfo(name = "") {
+    return [
+        "Pictogram(s)",
+        "Signal",
+        "GHS Hazard Statements",
+        "Precautionary Statement Codes",
+        "Note",
+        "NFPA 704 Diamond",
+        "NFPA Health Rating",
+        "NFPA Fire Rating",
+        "NFPA Instability Rating",
+        "NFPA Special Hazard"
+    ].includes(name);
+}
+
+function renderHazardValue(info) {
+    const value = info?.Value;
+    if (!value) return null;
+
+    const wrap = document.createElement("div");
+    wrap.className = "hazard-value";
+
+    // 1) pictogram / icon
+    if (Array.isArray(value.StringWithMarkup)) {
+        for (const item of value.StringWithMarkup) {
+            const markup = Array.isArray(item?.Markup) ? item.Markup : [];
+            const icons = markup.filter(m => m?.URL && m?.Type === "Icon");
+
+            if (icons.length) {
+                const row = document.createElement("div");
+                row.className = "hazard-icon-row";
+
+                icons.forEach(icon => {
+                    const img = document.createElement("img");
+                    img.src = icon.URL;
+                    img.alt = icon.Extra || info.Name || "Hazard icon";
+                    img.title = icon.Extra || info.Name || "Hazard icon";
+                    img.className = "icon";
+                    row.appendChild(img);
+                });
+
+                wrap.appendChild(row);
+            }
+        }
+    }
+
+    // 2) external image URL เช่น NFPA diamond image
+    if (Array.isArray(value.ExternalDataURL) && value.ExternalDataURL.length) {
+        const row = document.createElement("div");
+        row.className = "hazard-icon-row";
+
+        value.ExternalDataURL.forEach(url => {
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = info.Name || "Hazard image";
+            img.title = info.Name || "Hazard image";
+            img.className = "figure";
+            row.appendChild(img);
+        });
+
+        wrap.appendChild(row);
+    }
+
+    // 3) string list
+    const items = [];
+
+    if (Array.isArray(value.StringWithMarkup)) {
+        value.StringWithMarkup.forEach(item => {
+            const txt = item?.String?.trim();
+            if (txt) items.push(txt);
+        });
+    }
+
+    if (Array.isArray(value.String)) {
+        value.String.forEach(str => {
+            const txt = String(str).trim();
+            if (txt) items.push(txt);
+        });
+    }
+
+    if (Array.isArray(value.Number)) {
+        value.Number.forEach(num => {
+            items.push(String(num));
+        });
+    }
+
+    if (typeof value.Boolean === "boolean") {
+        items.push(String(value.Boolean));
+    }
+
+    if (items.length) {
+        // ถ้าเป็นค่าเดียว เช่น NFPA rating = 3
+        if (items.length === 1) {
+            const p = document.createElement("p");
+            p.textContent = items[0];
+            wrap.appendChild(p);
+        } else {
+            const ul = document.createElement("ul");
+            ul.className = "hazard-list";
+
+            items.forEach(text => {
+                const li = document.createElement("li");
+                li.textContent = text;
+                ul.appendChild(li);
+            });
+
+            wrap.appendChild(ul);
+        }
+    }
+
+    // 4) ถ้าไม่มีอะไรเลยค่อยคืน null ให้ fallback renderer ทำงาน
+    if (!wrap.childNodes.length) return null;
+
+    return wrap;
+}
+
+function getValueBySectionHeading(sections = [], headings = [], fallback = "ไม่มีข้อมูล") {
+    const sec = findSectionByPossibleNames(sections, headings);
+    if (!sec) return fallback;
+
+    const values = extractAllStringsFromInfoArray(sec.Information || [])
+        .map(v => String(v).trim())
+        .filter(Boolean);
+
+    if (!values.length) return fallback;
+
+    const joined = values.join(" ");
+
+    // ใส่ unit ถ้ามี
+    const firstInfo = Array.isArray(sec.Information) ? sec.Information[0] : null;
+    const unit =
+        firstInfo?.Value?.Unit && !joined.includes(firstInfo.Value.Unit)
+            ? ` ${firstInfo.Value.Unit}`
+            : "";
+
+    return joined + unit;
 }
 
 function renderValue(value) {
@@ -250,14 +433,6 @@ function renderValue(value) {
                 p.setAttribute("translate", "no");
             }
 
-            container.appendChild(p);
-        });
-    }
-
-    if (Array.isArray(value.String)) {
-        value.String.forEach(str => {
-            const p = document.createElement("p");
-            p.textContent = str;
             container.appendChild(p);
         });
     }
@@ -298,15 +473,13 @@ function renderValue(value) {
 
     Object.keys(value).forEach(key => {
         if (!knownKeys.has(key)) {
-            if(!urlParams.get('print')) {
-                const details = document.createElement("details");
-                details.innerHTML = `<summary>${escapeHtml(key)}</summary><pre>${escapeHtml(JSON.stringify(value[key], null, 2))}</pre>`;
-                container.appendChild(details);
-            } else {
-                const details = document.createElement("div");
+            const details = document.createElement(urlParams.get('print') ? "div" : "details");
+            if (urlParams.get('print')) {
                 details.innerHTML = `<p>${escapeHtml(key)}</p><pre>${escapeHtml(JSON.stringify(value[key], null, 2))}</pre>`;
-                container.appendChild(details);
+            } else {
+                details.innerHTML = `<summary>${escapeHtml(key)}</summary><pre>${escapeHtml(JSON.stringify(value[key], null, 2))}</pre>`;
             }
+            container.appendChild(details);
         }
     });
 
@@ -324,24 +497,14 @@ function renderStringWithMarkup(item) {
     const markup = Array.isArray(item?.Markup) ? item.Markup : [];
     block.className = "kv";
 
-    if (!markup.length) {
-        if(!blacklists.includes(raw)) {
-            if(acc != raw) {
-                const p = document.createElement("p");
-                p.textContent = raw;
-                block.appendChild(p);
-                acc = raw
-            } else {
-                block.setAttribute("class", "");
-            }
-            return block;
-        }
-    }
+    // รองรับ pictogram/icon โดยไม่สนว่าข้อความจะเป็นช่องว่างหรือไม่
+    const iconMarkup = markup.filter(m => m?.URL && m.Type === "Icon");
 
-    const iconOnly = markup.every(m => m.URL && m.Type === "Icon");
-    if (iconOnly) {
+    if (iconMarkup.length > 0) {
         const row = document.createElement("div");
-        markup.forEach(m => {
+        row.className = "pictogram-row";
+
+        iconMarkup.forEach(m => {
             const img = document.createElement("img");
             img.src = m.URL;
             img.alt = m.Extra || "Icon";
@@ -349,7 +512,20 @@ function renderStringWithMarkup(item) {
             img.className = "icon";
             row.appendChild(img);
         });
+
         block.appendChild(row);
+        return block;
+    }
+
+    if (!markup.length) {
+        if (!blacklists.includes(raw) && raw.trim()) {
+            if (acc !== raw) {
+                const p = document.createElement("p");
+                p.textContent = raw;
+                block.appendChild(p);
+                acc = raw;
+            }
+        }
         return block;
     }
 
@@ -366,15 +542,11 @@ function renderStringWithMarkup(item) {
             fragments.push(escapeHtml(raw.slice(cursor, start)));
         }
 
-        const text = raw.slice(start, end) || raw;
+        const text = raw.slice(start, end);
         let rendered = escapeHtml(text);
 
         if (m.URL) {
-            if(rendered.length <= 10 && !isNaN(rendered)) {
-                rendered = `<a href="${escapeAttr(m.URL)}" target="_blank" rel="noopener noreferrer" class="stay-inline" style="padding: 0 10px 0 0">${rendered}</a>`;
-            } else {
-                rendered = `<a href="${escapeAttr(m.URL)}" target="_blank" rel="noopener noreferrer">${rendered}</a>`;
-            }
+            rendered = `<a href="${escapeAttr(m.URL)}" target="_blank" rel="noopener noreferrer">${rendered || escapeHtml(m.URL)}</a>`;
         } else if (m.Type === "Italics") {
             rendered = `<em>${rendered}</em>`;
         } else if (m.Type === "Superscript") {
@@ -393,13 +565,13 @@ function renderStringWithMarkup(item) {
         fragments.push(escapeHtml(raw.slice(cursor)));
     }
 
-    const p = document.createElement("p");
-    p.innerHTML = fragments.join("");
-    if (looksLikeChemicalNotation(raw)) {
-        p.classList.add("notranslate");
-        p.setAttribute("translate", "no");
+    const html = fragments.join("").trim();
+    if (html) {
+        const p = document.createElement("p");
+        p.innerHTML = html;
+        block.appendChild(p);
     }
-    block.appendChild(p);
+
     return block;
 }
 
@@ -428,13 +600,13 @@ function looksLikeChemicalNotation(text = "") {
 }
 
 function makeSafeId(text) {
-    return text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return text.toLowerCase().replace(/[^a-z0-9]+/g, 'ไม่มีข้อมูล');
 }
 
 function createMenu() {
     const menuList = document.getElementById("menuList");
     if (!menuList) return;
-    
+
     let html = "<ul>";
     menu.forEach(item => {
         html += `<li style="margin-left: ${(item.level - 2) * 20}px">
@@ -452,7 +624,7 @@ function escapeHtml(text) {
 }
 
 function escapeAttr(text) {
-    return text.replace(/"/g, '&quot;');
+    return String(text ?? "").replace(/"/g, '&quot;');
 }
 
 function wait(ms) {
@@ -479,8 +651,15 @@ function setGoogleTranslateLanguage(lang) {
 
 async function triggerTranslateEnglishThenThai() {
     const result = document.getElementById("result");
-    result.setAttribute("lang", "en");
-    result.setAttribute("translate", "yes");
+    const official_result = document.getElementById("official_result")
+
+    if (result) {
+        result.setAttribute("lang", "en");
+        result.setAttribute("translate", "yes");
+    } else {
+        official_result.setAttribute("lang", "en");
+        official_result.setAttribute("translate", "yes");
+    }
 
     if (translated) return true;
 
@@ -526,7 +705,8 @@ function scrollToBottomThenPrint() {
     }, delay);
 }
 
-document.addEventListener('DOMContentLoaded', async function() {
+//Full Print Page | Unofficial & Official
+document.addEventListener('DOMContentLoaded', async function () {
     const urlParams = new URLSearchParams(window.location.search);
     const printCommand = urlParams.get('print');
     const translateCommand = urlParams.get('translate');
@@ -547,6 +727,1104 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 function printPage() {
-    q = document.getElementById("chemical_name").value
-    window.location.href=`/sds-print/?q=${encodeURIComponent(q)}&print=yes&translate=${translated ? "yes" : "no"}`
+    const q = document.getElementById("chemical_name").value
+    window.location.href = `/sds-print/?q=${encodeURIComponent(q)}&print=yes&translate=${translated ? "yes" : "no"}`
+}
+
+//Official Print Page
+function findSectionsByHeading(sections = [], heading) {
+    let results = [];
+
+    for (const section of sections) {
+        if (section.TOCHeading === heading || section.Name === heading) {
+            results.push(section);
+        }
+
+        if (Array.isArray(section.Section)) {
+            results = results.concat(findSectionsByHeading(section.Section, heading));
+        }
+    }
+
+    return results;
+}
+
+function findInfosByName(sections = [], infoName) {
+    let results = [];
+
+    for (const section of sections) {
+        if (Array.isArray(section.Information)) {
+            results.push(...section.Information.filter(info => info.Name === infoName));
+        }
+
+        if (Array.isArray(section.Section)) {
+            results = results.concat(findInfosByName(section.Section, infoName));
+        }
+    }
+
+    return results;
+}
+
+function extractStringsFromValue(value) {
+    const out = [];
+
+    if (!value) return out;
+
+    if (Array.isArray(value.StringWithMarkup)) {
+        value.StringWithMarkup.forEach(item => {
+            if (item?.String && item.String.trim()) {
+                out.push(item.String.trim());
+            }
+        });
+    }
+
+    if (Array.isArray(value.String)) {
+        value.String.forEach(str => {
+            if (String(str).trim()) out.push(String(str).trim());
+        });
+    }
+
+    if (Array.isArray(value.Number)) {
+        value.Number.forEach(num => out.push(String(num)));
+    }
+
+    if (typeof value.Boolean === "boolean") {
+        out.push(String(value.Boolean));
+    }
+
+    return out;
+}
+
+function extractFirstString(value, fallback = "ไม่มีข้อมูล") {
+    const arr = extractStringsFromValue(value);
+    return arr.length ? arr[0] : fallback;
+}
+
+
+function getSectionTitle(section) {
+    return section?.TOCHeading || section?.Name || "";
+}
+
+function collectSectionInfo(section) {
+    const results = [];
+
+    if (!section) return results;
+
+    if (Array.isArray(section.Information)) {
+        section.Information.forEach(info => {
+            results.push({
+                name: info.Name || "",
+                value: extractStringsFromValue(info.Value),
+                raw: info
+            });
+        });
+    }
+
+    if (Array.isArray(section.Section)) {
+        section.Section.forEach(sub => {
+            results.push(...collectSectionInfo(sub));
+        });
+    }
+
+    return results;
+}
+
+function findSectionByPossibleNames(sections = [], possibleNames = []) {
+    for (const section of sections) {
+        const title = getSectionTitle(section);
+
+        if (possibleNames.includes(title)) {
+            return section;
+        }
+
+        if (Array.isArray(section.Section)) {
+            const found = findSectionByPossibleNames(section.Section, possibleNames);
+            if (found) return found;
+        }
+    }
+
+    return null;
+}
+
+function getInfoValueFromCollected(collected = [], possibleNames = [], fallback = "ไม่มีข้อมูล") {
+    const found = collected.find(item => possibleNames.includes(item.name));
+    if (!found) return fallback;
+    return found.value.length ? found.value.join(" ") : fallback;
+}
+
+function getInfoListFromCollected(collected = [], possibleNames = []) {
+    const found = collected.find(item => possibleNames.includes(item.name));
+    if (!found) return [];
+    return found.value || [];
+}
+
+
+function debugSection(section, label = "SECTION") {
+    console.log(`===== ${label} =====`);
+    console.log("TITLE:", getSectionTitle(section));
+    console.log("RAW SECTION:", section);
+
+    const collected = collectSectionInfo(section);
+    collected.forEach(item => {
+        console.log("INFO:", item.name, item.value);
+    });
+
+    return collected;
+}
+
+function getInfoTextFromSections(sections = [], name, fallback = "ไม่มีข้อมูล") {
+    const info = findInfosByName(sections, name)[0];
+    return info ? extractFirstString(info.Value, fallback) : fallback;
+}
+
+
+function getInfoTextsFromSections(sections = [], name) {
+    const info = findInfosByName(sections, name)[0];
+    return info ? extractStringsFromValue(info.Value) : [];
+}
+
+function getSectionDescriptionFromSections(sections = [], heading, fallback = "ไม่มีข้อมูล") {
+    const sec = findSectionsByHeading(sections, heading)[0];
+    return sec?.Description || fallback;
+}
+
+function buildSdsData(record) {
+    const sections = record.Section || [];
+
+    const handlingStorageSection = findSectionByPossibleNames(sections, [
+        "Handling and Storage"
+    ]);
+
+    const physicalPropsSection = findSectionByPossibleNames(sections, [
+        "Physical and Chemical Properties",
+        "Physical Description",
+        "Experimental Properties"
+    ]);
+
+    const stabilitySection = findSectionByPossibleNames(sections, [
+        "Stability and Reactivity"
+    ]);
+
+    const airWaterReactionsSection = findSubsectionByHeading(stabilitySection, [
+        "Air and Water Reactions"
+    ]);
+
+    const reactiveGroupSection = findSubsectionByHeading(stabilitySection, [
+        "Reactive Group"
+    ]);
+
+    const reactivityAlertsSection = findSubsectionByHeading(stabilitySection, [
+        "Reactivity Alerts"
+    ]);
+
+    const decompositionSection = findSubsectionByHeading(stabilitySection, [
+        "Decomposition"
+    ]);
+
+    const toxicologySection = findSectionByPossibleNames(sections, [
+        "Toxicological Information",
+        "Toxicity",
+        "Toxicity Summary",
+        "Health Hazards"
+    ]);
+
+    const humanToxicityValues = getSectionListCleaned(sections, [
+        "Human Toxicity Values"
+    ]);
+
+    const nonHumanToxicityValues = getSectionListCleaned(sections, [
+        "Non-Human Toxicity Values"
+    ]);
+
+    const toxicitySummaryText = removeDuplicateSentences(
+        getSectionTextByPossibleNames(sections, [
+            "Toxicity Summary"
+        ], "ไม่มีข้อมูล")
+    );
+
+    return {
+        title: record.RecordTitle || "ไม่มีข้อมูล",
+        productName: record.RecordTitle || "ไม่มีข้อมูล",
+        chemicalName: record.RecordTitle || "ไม่มีข้อมูล",
+        synonyms: getBestSynonyms(sections, record.RecordTitle || "ไม่มีข้อมูล"),
+        molecularFormula: getInfoTextFromSections(sections, "Molecular Formula"),
+        molecularWeight: getInfoTextFromSections(sections, "Molecular Weight"),
+        casNumber: getInfoTextFromSections(sections, "CAS"),
+        unNumber: getInfoTextFromSections(sections, "UN Number"),
+        ecNumber: getInfoTextFromSections(sections, "EC Number"),
+        concentration: "ไม่มีข้อมูล",
+        percentage: "100%",
+        commonName: record.RecordTitle || "ไม่มีข้อมูล",
+        useAndRestriction: getSectionDescriptionFromSections(sections, "Use and Manufacturing"),
+
+        section1: {
+            productName: record.RecordTitle || "ไม่มีข้อมูล",
+            chemicalName: record.RecordTitle || "ไม่มีข้อมูล",
+            synonyms: getBestSynonyms(sections),
+            formula: getBestFormulaValue(sections, "ไม่มีข้อมูล"),
+            molecularWeight: getBestMolecularWeightValue(sections, "ไม่มีข้อมูล"),
+            casNumber: getFirstCasValue(sections, "ไม่มีข้อมูล"),
+            useAndRestrictions: getFirstNonDash(
+                getSectionTextByPossibleNames(sections, [
+                    "Use and Manufacturing",
+                    "Use",
+                    "Industrial Uses",
+                    "Consumer Uses"
+                ], "ไม่มีข้อมูล")
+            )
+        },
+
+        section7: {
+            handlingPrecautions: handlingStorageSection
+                ? extractAllStringsFromInfoArray(handlingStorageSection.Information || []).join(" ") || "ไม่มีข้อมูล"
+                : "ไม่มีข้อมูล",
+
+            safeStorage: getSubsectionText(handlingStorageSection, [
+                "Storage Conditions",
+                "Conditions for Safe Storage",
+                "Storage"
+            ], "ไม่มีข้อมูล"),
+
+            specificUse: getSubsectionText(handlingStorageSection, [
+                "Specific Use",
+                "Specific Uses",
+                "Specific End Use(s)"
+            ], "ไม่มีข้อมูล"),
+
+            environmentalPrecautions: getSubsectionText(handlingStorageSection, [
+                "Environmental Precautions"
+            ], "ไม่มีข้อมูล")
+        },
+
+        section8: {
+            exposureLimits: getSectionListByHeading(sections, [
+                "Occupational Exposure Limits",
+                "NIOSH Recommendations",
+                "Exposure Limits"
+            ]),
+
+            exposureControls: getSectionListByHeading(sections, [
+                "Exposure Prevention"
+            ]),
+
+            engineeringControls: getSectionTextByHeading(sections, [
+                "Exposure Prevention"
+            ], "ไม่มีข้อมูล"),
+
+            ppe: getSectionTextByHeading(sections, [
+                "Personal Protective Equipment (PPE)",
+                "Protective Equipment and Clothing"
+            ], "ไม่มีข้อมูล"),
+
+            skinProtection: getSubsectionText(
+                findSectionByPossibleNames(sections, ["Exposure Prevention"]),
+                ["Skin"],
+                "ไม่มีข้อมูล"
+            ),
+
+            handProtection: getSectionListByHeading(sections, [
+                "Protective Equipment and Clothing"
+            ]),
+
+            respiratoryProtection: getSectionTextByHeading(sections, [
+                "Respirator Recommendations"
+            ], "ไม่มีข้อมูล"),
+
+            environmentalExposureControls: getSectionTextByHeading(sections, [
+                "Exposure Prevention"
+            ], "ไม่มีข้อมูล")
+        },
+
+        section9: {
+            concentration: "ไม่มีข้อมูล",
+            appearance: getInfoTextFromSections(sections, "Physical Description"),
+            odor: getInfoTextFromSections(sections, "Odor"),
+            odorThreshold: getInfoTextFromSections(sections, "Odor Threshold"),
+            molecularWeight: getInfoTextFromSections(sections, "Molecular Weight"),
+            meltingPoint: getInfoTextFromSections(sections, "Melting Point"),
+            boilingPoint: getInfoTextFromSections(sections, "Boiling Point"),
+            flashPoint: getInfoTextFromSections(sections, "Flash Point"),
+            evaporationRate: getInfoTextFromSections(sections, "Evaporation Rate"),
+            flammability: getInfoTextFromSections(sections, "Flammability"),
+            explosiveLimitLower: getInfoTextFromSections(sections, "Lower Explosive Limit"),
+            explosiveLimitUpper: getInfoTextFromSections(sections, "Upper Explosive Limit"),
+            specificGravity: getInfoTextFromSections(sections, "Specific Gravity"),
+            vaporDensity: getInfoTextFromSections(sections, "Vapor Density"),
+            density: getInfoTextFromSections(sections, "Density"),
+            waterSolubility: getInfoTextFromSections(sections, "Solubility"),
+            vaporPressure: getInfoTextFromSections(sections, "Vapor Pressure"),
+            surfaceTension: getInfoTextFromSections(sections, "Surface Tension"),
+            viscosity: getInfoTextFromSections(sections, "Viscosity"),
+            diffusionCoefficient: getInfoTextFromSections(sections, "Diffusion Coefficient"),
+            ph: getInfoTextFromSections(sections, "pH"),
+            partitionCoefficient: getInfoTextFromSections(sections, "Partition Coefficient"),
+            logKow: getInfoTextFromSections(sections, "Log Kow"),
+            autoignitionTemperature: getInfoTextFromSections(sections, "Autoignition Temperature"),
+            decompositionTemperature: getInfoTextFromSections(sections, "Decomposition"),
+            explosiveProperties: getInfoTextFromSections(sections, "Explosive Limits and Potential"),
+            oxidizingProperties: getInfoTextFromSections(sections, "Oxidizing Properties")
+        },
+
+        section10: {
+            reactivity: getAllTextFromSection(airWaterReactionsSection, "ไม่มีข้อมูล"),
+
+            chemicalStability: getSectionTextByPossibleNames(sections, [
+                "Stability/Shelf Life"
+            ], "ไม่มีข้อมูล"),
+
+            hazardousReactions: getAllTextFromSection(reactivityAlertsSection, "ไม่มีข้อมูล"),
+
+            conditionsToAvoid: "ไม่มีข้อมูล",
+
+            incompatibleMaterials: getAllTextFromSection(reactiveGroupSection, "ไม่มีข้อมูล"),
+
+            hazardousDecompositionProducts: getAllTextFromSection(decompositionSection, "ไม่มีข้อมูล")
+        },
+
+        section11: {
+            acuteToxicity: firstOrDash([
+                ...findLinesContaining(humanToxicityValues, ["tox"]),
+                ...findLinesContaining(nonHumanToxicityValues, ["ld50"]),
+                ...findLinesContaining(nonHumanToxicityValues, ["lc50"]),
+                limitText(toxicitySummaryText, 450)
+            ].filter(v => v && v !== "ไม่มีข้อมูล")),
+
+            acuteOralToxicity: firstOrDash([
+                ...findLinesContaining(humanToxicityValues, ["oral"]),
+                ...findLinesContaining(nonHumanToxicityValues, ["ld50", "oral"])
+            ]),
+
+            acuteInhalationToxicity: firstOrDash([
+                ...findLinesContaining(humanToxicityValues, ["inhalation"]),
+                ...findLinesContaining(nonHumanToxicityValues, ["lc50", "inhalation"])
+            ]),
+
+            skinCorrosionIrritation: getSectionTextByPossibleNames(sections, [
+                "Skin Irritation",
+                "Irritation"
+            ], "ไม่มีข้อมูล"),
+
+            eyeDamageIrritation: getSectionTextByPossibleNames(sections, [
+                "Eye Irritation",
+                "Irritation"
+            ], "ไม่มีข้อมูล"),
+
+            sensitization: getSectionTextByPossibleNames(sections, [
+                "Sensitization"
+            ], "ไม่มีข้อมูล"),
+
+            germCellMutagenicity: getSectionTextByPossibleNames(sections, [
+                "Mutagenicity",
+                "Genotoxicity"
+            ], "ไม่มีข้อมูล"),
+
+            carcinogenicity: getSectionTextByPossibleNames(sections, [
+                "Carcinogenicity",
+                "Cancer Classification"
+            ], "ไม่มีข้อมูล"),
+
+            reproductiveToxicity: getSectionTextByPossibleNames(sections, [
+                "Reproductive Hazard",
+                "Reproductive Effects"
+            ], "ไม่มีข้อมูล"),
+
+            developmentalToxicity: getSectionTextByPossibleNames(sections, [
+                "Developmental Toxicity",
+                "Teratogenicity"
+            ], "ไม่มีข้อมูล"),
+
+            stotSingleExposure: getSectionTextByPossibleNames(sections, [
+                "Health Effects",
+                "Acute Effects"
+            ], "ไม่มีข้อมูล"),
+
+            stotRepeatedExposure: getSectionTextByPossibleNames(sections, [
+                "Chronic Effects",
+                "Repeated Dose Toxicity"
+            ], "ไม่มีข้อมูล"),
+
+            aspirationHazard: getSectionTextByPossibleNames(sections, [
+                "Aspiration Hazard"
+            ], "ไม่มีข้อมูล"),
+
+            additionalInformation: "ไม่มีข้อมูล"
+        },
+
+        section12: {
+            ecotoxicity: getSectionTextByPossibleNames(sections, [
+                "Ecotoxicity Values",
+                "Ecotoxicity"
+            ], "ไม่มีข้อมูล"),
+
+            persistenceDegradability: getFirstNonDash(
+                getSectionTextByPossibleNames(sections, [
+                    "Biodegradation",
+                    "Biodegradation Summary"
+                ], "ไม่มีข้อมูล"),
+                getSectionTextByPossibleNames(sections, [
+                    "Environmental Fate"
+                ], "ไม่มีข้อมูล")
+            ),
+
+            bioaccumulation: getFirstNonDash(
+                getSectionTextByPossibleNames(sections, [
+                    "Bioaccumulation",
+                    "Bioconcentration"
+                ], "ไม่มีข้อมูล"),
+                getSectionTextByPossibleNames(sections, [
+                    "BCF"
+                ], "ไม่มีข้อมูล")
+            ),
+
+            mobilitySoil: getFirstNonDash(
+                getSectionTextByPossibleNames(sections, [
+                    "Soil Adsorption/Mobility"
+                ], "ไม่มีข้อมูล"),
+                getSectionTextByPossibleNames(sections, [
+                    "Environmental Fate"
+                ], "ไม่มีข้อมูล")
+            ),
+
+            otherEffects: getSectionTextByPossibleNames(sections, [
+                "Environmental Fate",
+                "Environmental Exposure"
+            ], "ไม่มีข้อมูล")
+        },
+
+        section13: {
+            productDisposal: getSectionTextByPossibleNames(sections, [
+                "Disposal Methods"
+            ], "ไม่มีข้อมูล"),
+
+            contaminatedPackaging: getSectionTextByPossibleNames(sections, [
+                "Disposal Methods"
+            ], "ไม่มีข้อมูล")
+        },
+
+        section14: {
+            adr: {
+                shippingName: getInfoTextFromSections(sections, "Shipping Name"),
+                unNumber: getInfoTextFromSections(sections, "UN Number"),
+                hazardClass: getInfoTextFromSections(sections, "Hazard Class"),
+                packingGroup: getInfoTextFromSections(sections, "Packing Group"),
+                tankCode: "ไม่มีข้อมูล",
+                environmentalHazard: getInfoTextFromSections(sections, "Marine Pollutant"),
+                specialPrecautions: getInfoTextFromSections(sections, "Special Precautions for User")
+            },
+
+            imdg: {
+                shippingName: getInfoTextFromSections(sections, "Shipping Name"),
+                unNumber: getInfoTextFromSections(sections, "UN Number"),
+                hazardClass: getInfoTextFromSections(sections, "Hazard Class"),
+                packingGroup: getInfoTextFromSections(sections, "Packing Group"),
+                marinePollutant: getInfoTextFromSections(sections, "Marine Pollutant"),
+                specialPrecautions: getInfoTextFromSections(sections, "Special Precautions for User")
+            },
+
+            iata: {
+                shippingName: getInfoTextFromSections(sections, "Shipping Name"),
+                unNumber: getInfoTextFromSections(sections, "UN Number"),
+                hazardClass: getInfoTextFromSections(sections, "Hazard Class"),
+                packingGroup: getInfoTextFromSections(sections, "Packing Group"),
+                environmentalHazard: getInfoTextFromSections(sections, "Marine Pollutant"),
+                specialPrecautions: getInfoTextFromSections(sections, "Special Precautions for User")
+            },
+
+            adnr: {
+                shippingName: getInfoTextFromSections(sections, "Shipping Name"),
+                unNumber: getInfoTextFromSections(sections, "UN Number"),
+                hazardClass: getInfoTextFromSections(sections, "Hazard Class"),
+                packingGroup: getInfoTextFromSections(sections, "Packing Group"),
+                environmentalHazard: getInfoTextFromSections(sections, "Marine Pollutant"),
+                specialPrecautions: getInfoTextFromSections(sections, "Special Precautions for User")
+            }
+        },
+
+        section15: {
+            regulatory: getFirstNonDash(
+                getSectionTextByPossibleNames(sections, [
+                    "FDA Requirements"
+                ], "ไม่มีข้อมูล"),
+                getSectionTextByPossibleNames(sections, [
+                    "EPA Chemical Lists"
+                ], "ไม่มีข้อมูล"),
+                getSectionTextByPossibleNames(sections, [
+                    "Regulatory Information"
+                ], "ไม่มีข้อมูล")
+            )
+        },
+
+        section16: {
+            fullHStatements: getSectionListByPossibleNames(sections, [
+                "GHS Hazard Statements"
+            ]),
+            references: "ไม่มีข้อมูล"
+        }
+    };
+}
+
+function getInfoTextFromSections(sections = [], name, fallback = "ไม่มีข้อมูล") {
+    for (const section of sections) {
+        const collected = collectSectionInfo(section);
+        const found = collected.find(item => item.name === name && item.value?.length);
+        if (found) {
+            return found.value.join(" ");
+        }
+    }
+    return fallback;
+}
+
+function getInfoTextsFromSections(sections = [], name) {
+    for (const section of sections) {
+        const collected = collectSectionInfo(section);
+        const found = collected.find(item => item.name === name && item.value?.length);
+        if (found) {
+            return found.value;
+        }
+    }
+    return [];
+}
+
+function getFirstNonDash(...values) {
+    for (const v of values) {
+        if (Array.isArray(v) && v.length) return v;
+        if (typeof v === "string" && v.trim() && v.trim() !== "ไม่มีข้อมูล") return v.trim();
+    }
+    return Array.isArray(values[0]) ? [] : "ไม่มีข้อมูล";
+}
+
+function renderUl(items = []) {
+    return items.length
+        ? `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+        : "<p>ไม่มีข้อมูล</p>";
+}
+
+function getSectionTextByPossibleNames(sections = [], names = [], fallback = "ไม่มีข้อมูล") {
+    const sec = findSectionByPossibleNames(sections, names);
+    if (!sec) return fallback;
+
+    const vals = collectSectionInfo(sec)
+        .flatMap(item => item.value || [])
+        .map(v => String(v).trim())
+        .filter(Boolean);
+
+    return vals.length ? vals.join(" ") : fallback;
+}
+
+function getSectionListByPossibleNames(sections = [], names = []) {
+    const sec = findSectionByPossibleNames(sections, names);
+    if (!sec) return [];
+    return extractAllStringsFromInfoArray(sec.Information || []);
+}
+
+function getSectionByHeading(sections = [], headings = []) {
+    return findSectionByPossibleNames(sections, headings);
+}
+
+function getSectionByHeading(rootSections = [], headings = []) {
+    return findSectionByPossibleNames(rootSections, headings);
+}
+
+function getSubsectionByHeading(section, headings = []) {
+    return findSubsectionByHeading(section, headings);
+}
+
+function getAllTextFromSection(section, fallback = "ไม่มีข้อมูล") {
+    if (!section) return fallback;
+    const vals = extractAllStringsFromInfoArray(section.Information || []);
+    return vals.length ? vals.join(" ") : fallback;
+}
+
+function getSectionRawValues(sections = [], headings = []) {
+    const sec = getSectionByHeading(sections, headings);
+    if (!sec) return [];
+
+    const values = extractAllStringsFromInfoArray(sec.Information || []);
+    return uniqueValues(values);
+}
+
+function getFirstCasValue(sections = [], fallback = "ไม่มีข้อมูล") {
+    const values = getSectionRawValues(sections, ["CAS"]);
+    const cas = values.find(v => /^\d{2,7}-\d{2}-\d$/.test(v));
+    return cas || fallback;
+}
+
+function getBestFormulaValue(sections = [], fallback = "ไม่มีข้อมูล") {
+    const values = getSectionRawValues(sections, ["Molecular Formula"]);
+    if (!values.length) return fallback;
+
+    // เอาค่าที่เป็น molecular formula จริงก่อน เช่น C3H6O
+    const strictFormula = values.find(v =>
+        /^[A-Z][A-Za-z0-9()]*([A-Z][A-Za-z0-9()]*)*$/.test(v) &&
+        !v.includes("ไม่มีข้อมูล") &&
+        !v.includes(" ")
+    );
+
+    return strictFormula || values[0] || fallback;
+}
+
+function getBestMolecularWeightValue(sections = [], fallback = "ไม่มีข้อมูล") {
+    const sec = getSectionByHeading(sections, ["Molecular Weight"]);
+    if (!sec || !Array.isArray(sec.Information)) return fallback;
+
+    for (const info of sec.Information) {
+        const values = uniqueValues(extractStringsFromValue(info.Value));
+        if (!values.length) continue;
+
+        const first = values[0];
+        const unit = info?.Value?.Unit ? ` ${info.Value.Unit}` : "";
+
+        // ถ้ายังไม่มีหน่วยในข้อความ ค่อยเติม
+        return first.includes(info?.Value?.Unit || "") ? first : `${first}${unit}`;
+    }
+
+    return fallback;
+}
+
+function getBestSynonyms(sections = [], recordTitle = "", fallback = []) {
+    const values = uniqueValues(getInfoTextsFromSections(sections, "Synonyms"));
+    const mainName = String(recordTitle || "").trim().toLowerCase();
+
+    return values.filter(v =>
+        v &&
+        v !== "ไม่มีข้อมูล" &&
+        v.trim().toLowerCase() !== mainName
+    );
+}
+
+function getFirstValueByHeading(sections = [], headings = [], fallback = "ไม่มีข้อมูล") {
+    const values = getSectionRawValues(sections, headings);
+    return values[0] || fallback;
+}
+
+function getInfoFromSection(section, names = [], fallback = "ไม่มีข้อมูล") {
+    if (!section || !Array.isArray(section.Information)) return fallback;
+
+    const info = section.Information.find(i => names.includes(i.Name));
+
+    if (!info) return fallback;
+
+    return extractFirstString(info.Value, fallback);
+}
+
+function getInfoListFromSection(section, names = []) {
+    if (!section) return [];
+
+    if (Array.isArray(section.Information)) {
+        const info = section.Information.find(i => names.includes(i.Name));
+        if (info) return extractStringsFromValue(info.Value);
+    }
+
+    if (Array.isArray(section.Section)) {
+        for (const sub of section.Section) {
+            const fromSub = getInfoListFromSection(sub, names);
+            if (fromSub.length) return fromSub;
+        }
+    }
+
+    return [];
+}
+
+function extractAllStringsFromInfoArray(infoArray = []) {
+    const out = [];
+
+    infoArray.forEach(info => {
+        const vals = extractStringsFromValue(info.Value);
+        vals.forEach(v => {
+            if (v && v.trim()) out.push(v.trim());
+        });
+    });
+
+    return out;
+}
+
+function findSubsectionByHeading(section, headings = []) {
+    if (!section) return null;
+
+    if (headings.includes(section.TOCHeading || section.Name || "")) {
+        return section;
+    }
+
+    if (Array.isArray(section.Section)) {
+        for (const sub of section.Section) {
+            const found = findSubsectionByHeading(sub, headings);
+            if (found) return found;
+        }
+    }
+
+    return null;
+}
+
+function getSectionTextByHeading(rootSections = [], headings = [], fallback = "ไม่มีข้อมูล") {
+    const sec = findSectionByPossibleNames(rootSections, headings);
+    if (!sec) return fallback;
+
+    const vals = extractAllStringsFromInfoArray(sec.Information || []);
+    return vals.length ? vals.join(" ") : fallback;
+}
+
+function getSectionListByHeading(rootSections = [], headings = []) {
+    const sec = findSectionByPossibleNames(rootSections, headings);
+    if (!sec) return [];
+
+    return extractAllStringsFromInfoArray(sec.Information || []);
+}
+
+function getSubsectionText(section, headings = [], fallback = "ไม่มีข้อมูล") {
+    const sub = findSubsectionByHeading(section, headings);
+    if (!sub) return fallback;
+
+    const vals = extractAllStringsFromInfoArray(sub.Information || []);
+    return vals.length ? vals.join(" ") : fallback;
+}
+
+function getSubsectionList(section, headings = []) {
+    const sub = findSubsectionByHeading(section, headings);
+    if (!sub) return [];
+
+    return extractAllStringsFromInfoArray(sub.Information || []);
+}
+
+function renderPictogramsFromInfo(info) {
+    if (!info?.Value?.StringWithMarkup) return "";
+
+    let html = `<div class="pictogram-row">`;
+
+    info.Value.StringWithMarkup.forEach(item => {
+        const markup = Array.isArray(item.Markup) ? item.Markup : [];
+        const icons = markup.filter(m => m?.Type === "Icon" && m?.URL);
+
+        icons.forEach(icon => {
+            html += `
+                <div class="pictogram-item">
+                    <img src="${icon.URL}" alt="${icon.Extra || 'Pictogram'}" title="${icon.Extra || 'Pictogram'}">
+                    <div>${icon.Extra || ""}</div>
+                </div>
+            `;
+        });
+    });
+
+    html += `</div>`;
+    return html;
+}
+
+function renderListFromInfo(info) {
+    if (!info?.Value) return "<p>ไม่มีข้อมูล</p>";
+
+    const items = extractStringsFromValue(info.Value);
+    if (!items.length) return "<p>ไม่มีข้อมูล</p>";
+
+    return `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function findFirstSectionByNames(sections = [], names = []) {
+    for (const section of sections) {
+        const heading = section.TOCHeading || section.Name || "";
+        if (names.includes(heading)) return section;
+
+        if (Array.isArray(section.Section)) {
+            const found = findFirstSectionByNames(section.Section, names);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
+function findFirstInfoByNames(sections = [], names = []) {
+    for (const section of sections) {
+        if (Array.isArray(section.Information)) {
+            const foundInfo = section.Information.find(info => names.includes(info.Name));
+            if (foundInfo) return foundInfo;
+        }
+
+        if (Array.isArray(section.Section)) {
+            const found = findFirstInfoByNames(section.Section, names);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
+function renderCompositionTable(data) {
+    return `
+        <p>ส่วนประกอบสำคัญ</p>
+        <table>
+            <tr>
+                <th>องค์ประกอบ</th>
+                <th>CAS number</th>
+                <th>% โดยน้ำหนัก</th>
+            </tr>
+            <tr>
+                <td>${escapeHtml(data.chemicalName || "-")}</td>
+                <td>${escapeHtml(data.casNumber || "-")}</td>
+                <td>100</td>
+            </tr>
+        </table>
+    `;
+}
+
+function getInfoTextByNames(sections = [], names = [], fallback = "ไม่มีข้อมูล") {
+    const info = findFirstInfoByNames(sections, names);
+    return info ? extractFirstString(info.Value, fallback) : fallback;
+}
+
+function getInfoListByNames(sections = [], names = []) {
+    const info = findFirstInfoByNames(sections, names);
+    return info ? extractStringsFromValue(info.Value) : [];
+}
+
+function normalizeText(text = "") {
+    return String(text).replace(/\s+/g, " ").trim();
+}
+
+function removeDuplicateSentences(text = "") {
+    const parts = text
+        .split(/(?<=[.!?])\s+|;;|\n+/)
+        .map(s => normalizeText(s))
+        .filter(Boolean);
+
+    const seen = new Set();
+    const out = [];
+
+    for (const part of parts) {
+        if (!seen.has(part)) {
+            seen.add(part);
+            out.push(part);
+        }
+    }
+
+    return out.join(" ");
+}
+
+function limitText(text = "", maxLength = 500) {
+    const clean = normalizeText(text);
+    if (clean.length <= maxLength) return clean;
+    return clean.slice(0, maxLength).trim() + "...";
+}
+
+function getSectionListCleaned(sections = [], names = []) {
+    const items = getSectionListByPossibleNames(sections, names);
+    return items
+        .map(item => normalizeText(item))
+        .filter(item =>
+            item &&
+            !item.startsWith("For more ") &&
+            !item.startsWith("Description of ") &&
+            !item.startsWith("This section ")
+        );
+}
+
+function findLinesContaining(items = [], keywords = []) {
+    return items.filter(item => {
+        const t = item.toLowerCase();
+        return keywords.every(k => t.includes(k.toLowerCase()));
+    });
+}
+
+function firstOrDash(items = []) {
+    return items.length ? items[0] : "ไม่มีข้อมูล";
+}
+
+function uniqueValues(values = []) {
+    return [...new Set(values.map(v => String(v).trim()).filter(Boolean))];
+}
+
+function populatePrintSds(data, record) {
+    const sections = record.Section || [];
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value || "ไม่มีข้อมูล";
+    };
+
+    const setHtml = (id, html) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = html || "ไม่มีข้อมูล";
+    };
+
+    setText("chemical_name_title", data.title);
+    setText("product_name", data.section1?.productName);
+    setText("sec1_chemical_name", data.section1?.chemicalName);
+    setText(
+        "sec1_synonyms",
+        data.section1?.synonyms?.length ? data.section1.synonyms.join(", ") : "ไม่มีข้อมูล"
+    );
+    setText("sec1_formula", data.section1?.formula);
+    setText("sec1_molecular_weight", data.section1?.molecularWeight);
+    setText("sec1_cas_number", data.section1?.casNumber);
+    setText("chemical_name_and_concentration", `${data.chemicalName} / ${data.percentage}`);
+    setText("chemical_name_2", data.chemicalName);
+    setText("chemical_synonym", data.synonyms.length ? data.synonyms.join(", ") : "ไม่มีข้อมูล");
+    setText("chemical_formula", data.molecularFormula);
+    setText("percentage", data.percentage);
+    setText("molecular_weight", data.molecularWeight);
+    setText("cas_number", data.casNumber);
+    setText("un_number", data.unNumber);
+    setText("ec_number", data.ecNumber);
+    setText("first_aid_general", data.firstAidGeneral);
+    setText("first_aid_inhalation", data.firstAidInhalation);
+    setText("first_aid_skin", data.firstAidSkin);
+    setText("first_aid_eye", data.firstAidEye);
+    setText("first_aid_ingestion", data.firstAidIngestion);
+    setText("first_aid_symptoms", data.firstAidSymptoms);
+    setText("first_aid_medical_attention", data.firstAidMedicalAttention);
+
+    setText("fire_fighting_extinguishing_media", data.fireFightingExtinguishingMedia);
+    setText("fire_fighting_specific_hazards", data.fireFightingSpecificHazards);
+    setText("fire_fighting_advice", data.fireFightingAdvice);
+    setText("fire_fighting_additional_info", data.fireFightingAdditionalInfo);
+    setText(
+        "sec1_use_restrictions",
+        limitText(data.section1?.useAndRestrictions || "ไม่มีข้อมูล", 400)
+    );
+    const pictogramInfo = findInfosByName(sections, "Pictogram(s)")[0];
+    const hazardInfo = findInfosByName(sections, "GHS Hazard Statements")[0];
+    const precautionInfo = findInfosByName(sections, "Precautionary Statement Codes")[0];
+
+    setHtml("ghs_pictograms", pictogramInfo ? renderPictogramsFromInfo(pictogramInfo) : "<p>ไม่มีข้อมูล</p>");
+    setHtml("ghs_hazard_statements", hazardInfo ? renderListFromInfo(hazardInfo) : "<p>ไม่มีข้อมูล</p>");
+    setHtml("ghs_precautionary_statements", precautionInfo ? renderListFromInfo(precautionInfo) : "<p>ไม่มีข้อมูล</p>");
+
+    setText("sec6_personal_precautions", data.section6?.personalPrecautions);
+    setText("sec6_protective_equipment", data.section6?.protectiveEquipment);
+    setHtml(
+        "sec6_emergency_procedures",
+        data.section6?.emergencyProcedures?.length
+            ? `<ul>${data.section6.emergencyProcedures.map(i => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`
+            : "<p>ไม่มีข้อมูล</p>"
+    );
+    setText("sec6_environmental_precautions", data.section6?.environmentalPrecautions);
+    setText("sec6_cleanup_methods", data.section6?.cleanupMethods);
+
+    setText("sec7_handling_precautions", data.section7?.handlingPrecautions || "หลีกเลี่ยงการสูดดมไอระเหยและการสัมผัสโดยตรง ใช้งานในบริเวณที่มีการระบายอากาศที่ดี");
+    setText("sec7_safe_storage", data.section7?.safeStorage);
+    setText("sec7_specific_use", data.section7?.specificUse);
+    setText("sec7_environmental_precautions", data.section7?.environmentalPrecautions);
+
+    setHtml(
+        "sec8_exposure_limits",
+        data.section8?.exposureLimits?.length
+            ? `<ul>${data.section8.exposureLimits.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+            : "<p>ไม่มีข้อมูล</p>"
+    );
+
+    setHtml(
+        "sec8_exposure_controls",
+        data.section8?.exposureControls?.length
+            ? `<ul>${data.section8.exposureControls.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+            : "<p>ไม่มีข้อมูล</p>"
+    );
+
+    setText("sec8_engineering_controls", data.section8?.engineeringControls);
+    setText("sec8_ppe", data.section8?.ppe);
+    setText("sec8_skin_protection", data.section8?.skinProtection);
+
+    setHtml(
+        "sec8_hand_protection",
+        data.section8?.handProtection?.length
+            ? `<ul>${data.section8.handProtection.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+            : "<p>ไม่มีข้อมูล</p>"
+    );
+
+    setText("sec8_respiratory_protection", data.section8?.respiratoryProtection);
+    setText("sec8_environmental_exposure_controls", data.section8?.environmentalExposureControls);
+
+    setText("sec9_concentration", data.section9?.concentration);
+    setText("sec9_appearance", data.section9?.appearance);
+    setText("sec9_odor", data.section9?.odor);
+    setText("sec9_odor_threshold", data.section9?.odorThreshold);
+    setText("sec9_molecular_weight", data.section9?.molecularWeight);
+    setText("sec9_melting_point", data.section9?.meltingPoint);
+    setText("sec9_boiling_point", data.section9?.boilingPoint);
+    setText("sec9_flash_point", data.section9?.flashPoint);
+    setText("sec9_evaporation_rate", data.section9?.evaporationRate);
+    setText("sec9_flammability", data.section9?.flammability);
+    setText("sec9_explosive_limit_lower", data.section9?.explosiveLimitLower);
+    setText("sec9_explosive_limit_upper", data.section9?.explosiveLimitUpper);
+    setText("sec9_specific_gravity", data.section9?.specificGravity);
+    setText("sec9_vapor_density", data.section9?.vaporDensity);
+    setText("sec9_density", data.section9?.density);
+    setText("sec9_water_solubility", data.section9?.waterSolubility);
+    setText("sec9_vapor_pressure", data.section9?.vaporPressure);
+    setText("sec9_surface_tension", data.section9?.surfaceTension);
+    setText("sec9_viscosity", data.section9?.viscosity);
+    setText("sec9_diffusion_coefficient", data.section9?.diffusionCoefficient);
+    setText("sec9_ph", data.section9?.ph);
+    setText("sec9_partition_coefficient", data.section9?.partitionCoefficient);
+    setText("sec9_log_kow", data.section9?.logKow);
+    setText("sec9_autoignition_temperature", data.section9?.autoignitionTemperature);
+    setText("sec9_decomposition_temperature", data.section9?.decompositionTemperature);
+    setText("sec9_explosive_properties", data.section9?.explosiveProperties);
+    setText("sec9_oxidizing_properties", data.section9?.oxidizingProperties);
+
+    setText("sec10_reactivity", data.section10?.reactivity);
+    setText("sec10_chemical_stability", data.section10?.chemicalStability);
+    setText("sec10_hazardous_reactions", data.section10?.hazardousReactions);
+    setText("sec10_conditions_to_avoid", data.section10?.conditionsToAvoid);
+    setText("sec10_incompatible_materials", data.section10?.incompatibleMaterials);
+    setText("sec10_hazardous_decomposition_products", data.section10?.hazardousDecompositionProducts);
+    setText("sec11_acute_toxicity", limitText(data.section11?.acuteToxicity || "ไม่มีข้อมูล", 500));
+    setText("sec11_acute_oral_toxicity", limitText(data.section11?.acuteOralToxicity || "ไม่มีข้อมูล", 250));
+    setText("sec11_acute_inhalation_toxicity", limitText(data.section11?.acuteInhalationToxicity || "ไม่มีข้อมูล", 250));
+    setText("sec11_skin_corrosion_irritation", data.section11?.skinCorrosionIrritation);
+    setText("sec11_eye_damage_irritation", data.section11?.eyeDamageIrritation);
+    setText("sec11_sensitization", data.section11?.sensitization);
+    setText("sec11_germ_cell_mutagenicity", data.section11?.germCellMutagenicity);
+    setText("sec11_carcinogenicity", data.section11?.carcinogenicity);
+    setText("sec11_reproductive_toxicity", data.section11?.reproductiveToxicity);
+    setText("sec11_developmental_toxicity", data.section11?.developmentalToxicity);
+    setText("sec11_stot_single_exposure", data.section11?.stotSingleExposure);
+    setText("sec11_stot_repeated_exposure", data.section11?.stotRepeatedExposure);
+    setText("sec11_aspiration_hazard", data.section11?.aspirationHazard);
+    setText("sec11_additional_information", data.section11?.additionalInformation);
+
+    // Section 12
+    setText("sec12_ecotoxicity", data.section12?.ecotoxicity);
+    setText("sec12_persistence_degradability", data.section12?.persistenceDegradability);
+    setText("sec12_bioaccumulation", data.section12?.bioaccumulation);
+    setText("sec12_mobility_soil", data.section12?.mobilitySoil);
+    setText("sec12_other_effects", data.section12?.otherEffects);
+
+    // Section 13
+    setText("sec13_product_disposal", data.section13?.productDisposal);
+    setText("sec13_contaminated_packaging", data.section13?.contaminatedPackaging);
+
+    // Section 14 ADR
+    setText("sec14_adr_shipping_name", data.section14?.adr?.shippingName);
+    setText("sec14_adr_un_number", data.section14?.adr?.unNumber);
+    setText("sec14_adr_class", data.section14?.adr?.hazardClass);
+    setText("sec14_adr_packing_group", data.section14?.adr?.packingGroup);
+    setText("sec14_adr_tank_code", data.section14?.adr?.tankCode);
+    setText("sec14_adr_environmental_hazard", data.section14?.adr?.environmentalHazard);
+    setText("sec14_adr_special_precautions", data.section14?.adr?.specialPrecautions);
+
+    // Section 14 IMDG
+    setText("sec14_imdg_shipping_name", data.section14?.imdg?.shippingName);
+    setText("sec14_imdg_un_number", data.section14?.imdg?.unNumber);
+    setText("sec14_imdg_class", data.section14?.imdg?.hazardClass);
+    setText("sec14_imdg_packing_group", data.section14?.imdg?.packingGroup);
+    setText("sec14_imdg_marine_pollutant", data.section14?.imdg?.marinePollutant);
+    setText("sec14_imdg_special_precautions", data.section14?.imdg?.specialPrecautions);
+
+    // Section 14 IATA
+    setText("sec14_iata_shipping_name", data.section14?.iata?.shippingName);
+    setText("sec14_iata_un_number", data.section14?.iata?.unNumber);
+    setText("sec14_iata_class", data.section14?.iata?.hazardClass);
+    setText("sec14_iata_packing_group", data.section14?.iata?.packingGroup);
+    setText("sec14_iata_environmental_hazard", data.section14?.iata?.environmentalHazard);
+    setText("sec14_iata_special_precautions", data.section14?.iata?.specialPrecautions);
+
+    // Section 14 ADNR
+    setText("sec14_adnr_shipping_name", data.section14?.adnr?.shippingName);
+    setText("sec14_adnr_un_number", data.section14?.adnr?.unNumber);
+    setText("sec14_adnr_class", data.section14?.adnr?.hazardClass);
+    setText("sec14_adnr_packing_group", data.section14?.adnr?.packingGroup);
+    setText("sec14_adnr_environmental_hazard", data.section14?.adnr?.environmentalHazard);
+    setText("sec14_adnr_special_precautions", data.section14?.adnr?.specialPrecautions);
+
+    // Section 15
+    setText("sec15_regulatory", data.section15?.regulatory);
+
+    // Section 16
+    setHtml("sec16_full_h_statements", renderUl(data.section16?.fullHStatements || []));
+    setText("sec16_references", data.section16?.references);
 }

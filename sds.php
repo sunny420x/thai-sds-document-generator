@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 function pubchem_enqueue_assets() {
     global $post;
-    if (is_page("sds") || is_page("sds-print")) {
+    if (is_page("sds") || is_page("sds-print") || is_page("official-sds-print")) {
 
         //Load CSS
         wp_enqueue_style(
