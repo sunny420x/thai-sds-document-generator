@@ -1,0 +1,151 @@
+.section {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 14px;
+    margin: 14px 0;
+}
+
+.section h2,
+.section h3,
+.section h4,
+.section h5,
+.section h6 {
+    margin-top: 0;
+    scroll-margin-top: 20px;
+}
+
+.meta {
+    color: #666;
+    font-size: 14px;
+}
+
+.info {
+    div .kv {
+        margin: 10px 0;
+        padding: 10px;
+    }
+}
+
+.label {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+img.icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+img.figure {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+.kv {
+    margin: 6px 0;
+}
+
+.loading {
+    color: #444;
+}
+
+.error {
+    color: #b00020;
+}
+
+details {
+    margin: 8px 0;
+}
+
+summary {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+a {
+    word-break: break-word;
+}
+
+.view {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    overflow: visible !important;
+}
+
+#result {
+    flex: 1;
+
+    &.no-border {
+
+        .section {
+            border: 0 !important;
+        }
+    }
+}
+
+#menuElement {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 80px;
+    background: #fff;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    z-index: 100;
+    margin-top: 13px;
+}
+
+.entry-content, .post-inner, #primary, #main {
+    overflow: visible !important;
+}
+
+#menuElement ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#menuElement li {
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+#menuElement li:last-child {
+    border-bottom: none;
+}
+
+#menuElement a {
+    color: #444;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+}
+
+#menuElement a:hover {
+    color: #000;
+    text-decoration: underline;
+}
+
+.waitingScreen {
+    background: #000000ce;
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+.waitingScreen h1 {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+}
