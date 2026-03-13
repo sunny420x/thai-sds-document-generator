@@ -234,9 +234,17 @@ function renderInformation(info) {
 function renderValue(value) {
     const container = document.createElement("div");
 
-    if (Array.isArray(value.StringWithMarkup)) {
-        value.StringWithMarkup.forEach(item => {
-            container.appendChild(renderStringWithMarkup(item));
+    if (Array.isArray(value.String)) {
+        value.String.forEach(str => {
+            const p = document.createElement("p");
+            p.textContent = str;
+
+            if (looksLikeChemicalNotation(str)) {
+                p.classList.add("notranslate");
+                p.setAttribute("translate", "no");
+            }
+
+            container.appendChild(p);
         });
     }
 
