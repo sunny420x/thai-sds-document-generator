@@ -3,8 +3,10 @@
  * Plugin Name: PubChem Chemical Lookup
  * Description: ดึงข้อมูลสารเคมีจาก PubChem API
  * Version: 1.0
+ * Author: Jirakit Pawnsakunrungrot
  */
 
+//Deny access from URL.
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 function pubchem_enqueue_assets() {
