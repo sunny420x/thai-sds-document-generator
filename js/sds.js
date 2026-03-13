@@ -455,50 +455,50 @@ function escapeAttr(text) {
     return text.replace(/"/g, '&quot;');
 }
 
-function setGoogleTranslateLanguage(lang, callback) {
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForTranslateCombo(maxAttempts = 30, interval = 500) {
+    for (let i = 0; i < maxAttempts; i++) {
+        const combo = document.querySelector('.goog-te-combo');
+        if (combo) return combo;
+        await wait(interval);
+    }
+    return null;
+}
+
+function setGoogleTranslateLanguage(lang) {
     const combo = document.querySelector('.goog-te-combo');
     if (!combo) return false;
 
     combo.value = lang;
     combo.dispatchEvent(new Event('change'));
-
-    if (typeof callback === 'function') {
-        setTimeout(callback, 1200);
-    }
-    translated = true
     return true;
 }
 
-function triggerTranslateEnglishThenThai() {
-    let attempts = 0;
-    const maxAttempts = 30;
-
+async function triggerTranslateEnglishThenThai() {
     const result = document.getElementById("result");
     result.setAttribute("lang", "en");
     result.setAttribute("translate", "yes");
 
-    //Translates only when the page is not marked as "translated".
-    if(!translated) {
-        const timer = setInterval(() => {
-            const combo = document.querySelector('.goog-te-combo');
-            if (combo) {
-                clearInterval(timer);
+    if (translated) return true;
 
-                console.log("triggerTranslateEnglishThenThai is called")
+    const combo = await waitForTranslateCombo();
+    if (!combo) return false;
 
-                // รอบแรก: บังคับให้ทั้งหน้าเปลี่ยนออกจากภาษาไทยก่อน
-                setGoogleTranslateLanguage('en', () => {
-                    // รอบสอง: ค่อยกลับมาเป็นไทย
-                    setGoogleTranslateLanguage('th');
-                });
-            }
+    console.log("triggerTranslateEnglishThenThai is called");
 
-            attempts++;
-            if (attempts >= maxAttempts) {
-                clearInterval(timer);
-            }
-        }, 500);
-    }
+    // บังคับออกจากไทยก่อน
+    setGoogleTranslateLanguage('en');
+    await wait(1500);
+
+    // แล้วค่อยกลับมาไทย
+    setGoogleTranslateLanguage('th');
+    await wait(2000);
+
+    translated = true;
+    return true;
 }
 
 function scrollToBottomThenPrint() {
@@ -526,26 +526,25 @@ function scrollToBottomThenPrint() {
     }, delay);
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const urlParams = new URLSearchParams(window.location.search);
     const printCommand = urlParams.get('print');
     const translateCommand = urlParams.get('translate');
-    if (printCommand == "yes") {
-        if(translateCommand == "yes") {
-            new Promise(resolve => setTimeout(resolve, 1000))
-            .then(() => {
-                setTimeout(triggerTranslateEnglishThenThai, 1000)
-                scrollToBottomThenPrint();
-            });
+
+    if (printCommand === "yes") {
+        if (translateCommand === "yes") {
+            await wait(1000);
+            await triggerTranslateEnglishThenThai();
+            await wait(1500);
+            scrollToBottomThenPrint();
         } else {
-            new Promise(resolve => setTimeout(resolve, 500))
-            .then(() => {
-                document.getElementsByClassName('waitingScreen')[0].style.display = "none";
-                window.print();
-            })
+            await wait(500);
+            const waitingScreen = document.getElementsByClassName('waitingScreen')[0];
+            if (waitingScreen) waitingScreen.style.display = "none";
+            window.print();
         }
     }
-})
+});
 
 function printPage() {
     q = document.getElementById("chemical_name").value
