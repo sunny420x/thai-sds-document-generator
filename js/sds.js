@@ -225,7 +225,13 @@ function renderInformation(info) {
     }
 
     if (info.Value) {
-        div.appendChild(renderValue(info.Value));
+        const valueNode = renderValue(info.Value);
+
+        if (info.Name === "Standard non-polar" || info.Name === "Semi-standard non-polar" || info.Name === "Standard polar") {
+            valueNode.classList.add("stay-inline");
+        }
+
+        div.appendChild(valueNode);
     }
 
     return div;
@@ -365,7 +371,7 @@ function renderStringWithMarkup(item) {
 
         if (m.URL) {
             if(rendered.length <= 10 && !isNaN(rendered)) {
-                rendered = `<a href="${escapeAttr(m.URL)}" target="_blank" rel="noopener noreferrer" class="float-left" style="padding: 0 10px 0 0">${rendered}</a>`;
+                rendered = `<a href="${escapeAttr(m.URL)}" target="_blank" rel="noopener noreferrer" class="stay-inline" style="padding: 0 10px 0 0">${rendered}</a>`;
             } else {
                 rendered = `<a href="${escapeAttr(m.URL)}" target="_blank" rel="noopener noreferrer">${rendered}</a>`;
             }

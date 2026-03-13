@@ -149,3 +149,9 @@ a {
     transform: translate(-50%, -50%);
     color: #fff;
 }
+
+.stay-inline > p {
+    display: inline-block;
+    margin: 0 10px 6px 0;
+    white-space: nowrap;
+}
