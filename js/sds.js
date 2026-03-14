@@ -1206,10 +1206,7 @@ function buildSdsData(record) {
                 ], "ไม่มีข้อมูล")
 
             ),
-            chemicaProperties: getSectionListByPossibleNames(sections, [
-                "GHS Hazard Statements",
-                "Hazard Statements"
-            ] || "ไม่มีข้อมูล")
+            chemicaProperties: "ไม่มีข้อมูล",
         },
 
         section4: {
