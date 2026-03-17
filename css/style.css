@@ -223,3 +223,7 @@ a {
 .official_print ul {
     list-style: none;
 }
+
+.official_print p.indent {
+    text-indent: 50px;
+}

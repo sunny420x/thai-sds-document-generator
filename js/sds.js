@@ -774,6 +774,48 @@ function renderPrecautionaryStatementsTranslated(items = []) {
     `;
 }
 
+function parseFirstAidFromGeneral(text = "") {
+
+    const result = {
+        inhalation: "ไม่มีข้อมูล",
+        skin: "ไม่มีข้อมูล",
+        eye: "ไม่มีข้อมูล",
+        ingestion: "ไม่มีข้อมูล"
+    };
+
+    if (!text) return result;
+
+    const patterns = {
+        eye: /(EYES?|Eye):([\s\S]*?)(?=(SKIN|INHALATION|INGESTION|Breathing|Swallow|$))/i,
+        skin: /(SKIN|Skin):([\s\S]*?)(?=(EYE|INHALATION|INGESTION|Breathing|Swallow|$))/i,
+        inhalation: /(INHALATION|Breathing):([\s\S]*?)(?=(EYE|SKIN|INGESTION|Swallow|$))/i,
+        ingestion: /(INGESTION|Swallow):([\s\S]*?)(?=(EYE|SKIN|INHALATION|$))/i
+    };
+
+    for (const key in patterns) {
+        const m = text.match(patterns[key]);
+        if (m) {
+            result[key] = m[2].trim();
+        }
+    }
+
+    return result;
+}
+
+function extractExtinguishingMedia(text = "") {
+    if (!text || text === "ไม่มีข้อมูล") return "ไม่มีข้อมูล";
+
+    const clean = String(text).replace(/\s+/g, " ").trim();
+
+    const match = clean.match(/Suitable extinguishing media:\s*([^.]*)/i);
+
+    if (match && match[1]) {
+        return match[1].trim();
+    }
+
+    return "ไม่มีข้อมูล";
+}
+
 function createMenu() {
     const menuList = document.getElementById("menuList");
     if (!menuList) return;
@@ -1157,6 +1199,88 @@ function buildSdsData(record) {
         ], "ไม่มีข้อมูล")
     );
 
+    const generalFirstAid = getSectionTextByPossibleNames(sections, [
+        "First Aid Measures",
+        "General First Aid"
+    ], "ไม่มีข้อมูล");
+
+    const parsedFirstAid = parseFirstAidFromGeneral(generalFirstAid);
+
+    function shortenGeneralFirstAid(text = "") {
+
+        if (!text) return "ไม่มีข้อมูล";
+
+        // ตัด reference
+        text = text.replace(/\([^)]*\)/g, "");
+
+        // ตัดส่วนที่เริ่ม EYES / SKIN / INHALATION / INGESTION
+        text = text.split(/EYES:|SKIN:|INHALATION:|INGESTION:/i)[0];
+
+        // แยกประโยค
+        const sentences = text.split(/[.!?]\s+/);
+
+        return sentences.slice(0, 3).join(". ").trim();
+    }
+
+    function truncateClean(text = "", maxLength = 300) {
+        if (!text || text === "ไม่มีข้อมูล") return text;
+
+        let clean = String(text)
+            .replace(/\s+/g, " ")
+            .trim();
+
+        if (clean.length <= maxLength) return clean;
+
+        let truncated = clean.slice(0, maxLength);
+
+        const lastSpace = truncated.lastIndexOf(" ");
+        if (lastSpace > 0) {
+            truncated = truncated.slice(0, lastSpace);
+        }
+
+        // ลบวงเล็บที่เปิดแต่ไม่ปิด
+        const open = (truncated.match(/\(/g) || []).length;
+        const close = (truncated.match(/\)/g) || []).length;
+
+        if (open > close) {
+            truncated = truncated.substring(0, truncated.lastIndexOf("(")).trim();
+        }
+
+        return truncated + "...";
+    }
+
+    function buildTransportMode(sections = [], modeKeywords = []) {
+        // หา subsection เฉพาะ mode ก่อน เช่น "ADR", "IATA"
+        const modeSection = findSectionByPossibleNames(sections, modeKeywords);
+        const src = modeSection ? [modeSection] : sections;
+
+        return {
+            shippingName: getPropertyText(src, [
+                "Shipping Name",
+                "Proper Shipping Name",
+                "DOT Shipping Name",
+                "UN Proper Shipping Name"
+            ], record.RecordTitle),
+            unNumber: getPropertyText(src, [
+                "UN Number", "UN/NA Number", "ID Number"
+            ]),
+            hazardClass: getPropertyText(src, [
+                "Hazard Class", "Hazard Class Number", "DOT Hazard Class"
+            ]),
+            packingGroup: getPropertyText(src, [
+                "Packing Group", "DOT Packing Group"
+            ]),
+            environmentalHazard: getPropertyText(src, [
+                "Marine Pollutant", "Environmental Hazard"
+            ]),
+            specialPrecautions: getPropertyText(src, [
+                "Special Precautions for User",
+                "Special Provisions",
+                "Emergency Response Guide Number"
+            ])
+        };
+    }
+
     return {
         title: record.RecordTitle || "ไม่มีข้อมูล",
         productName: record.RecordTitle || "ไม่มีข้อมูล",
@@ -1178,14 +1302,14 @@ function buildSdsData(record) {
             formula: getBestFormulaValue(sections, "ไม่มีข้อมูล"),
             molecularWeight: getBestMolecularWeightValue(sections, "ไม่มีข้อมูล"),
             casNumber: getFirstCasValue(sections, "ไม่มีข้อมูล"),
-            useAndRestrictions: getFirstNonDash(
+            useAndRestrictions: truncateClean(getFirstNonDash(
                 getSectionTextByPossibleNames(sections, [
                     "Use and Manufacturing",
                     "Use",
                     "Industrial Uses",
                     "Consumer Uses"
                 ], "ไม่มีข้อมูล")
-            )
+            ), 350)
         },
 
         section2: {
@@ -1210,53 +1334,75 @@ function buildSdsData(record) {
         },
 
         section4: {
-            general: getFirstNonDash(
-                getSectionTextByPossibleNames(sections, [
-                    "First Aid Measures"
-                ], "-"),
-                "ไม่มีข้อมูล"
-            ),
+
+            general: shortenGeneralFirstAid(generalFirstAid),
 
             inhalation: getFirstNonDash(
                 getSectionTextByPossibleNames(sections, [
                     "Inhalation First Aid"
-                ], "-"),
-                getSectionTextByPossibleNames(sections, [
-                    "Inhalation Exposure"
-                ], "-"),
-                "ไม่มีข้อมูล"
+                ]),
+                parsedFirstAid.inhalation
             ),
 
             skin: getFirstNonDash(
                 getSectionTextByPossibleNames(sections, [
                     "Skin First Aid"
-                ], "-"),
-                getSectionTextByPossibleNames(sections, [
-                    "Skin Exposure"
-                ], "-"),
-                "ไม่มีข้อมูล"
+                ]),
+                parsedFirstAid.skin
             ),
 
             eye: getFirstNonDash(
                 getSectionTextByPossibleNames(sections, [
                     "Eye First Aid"
-                ], "-"),
-                getSectionTextByPossibleNames(sections, [
-                    "Eye Exposure"
-                ], "-"),
-                "ไม่มีข้อมูล"
+                ]),
+                parsedFirstAid.eye
             ),
 
             ingestion: getFirstNonDash(
                 getSectionTextByPossibleNames(sections, [
                     "Ingestion First Aid"
-                ], "-"),
+                ]),
+                parsedFirstAid.ingestion
+            )
+
+        },
+
+        section4_2: getFirstNonDash(
+            getSectionTextByPossibleNames(sections, [
+                "Effects of Short Term Exposure"
+            ], "ไม่มีข้อมูล"),
+            getSectionTextByPossibleNames(sections, [
+                "Acute Effects"
+            ], "ไม่มีข้อมูล"),
+            getSectionTextByPossibleNames(sections, [
+                "Health Effects"
+            ], "ไม่มีข้อมูล"),
+            getSectionTextByPossibleNames(sections, [
+                "Signs and Symptoms"
+            ], "ไม่มีข้อมูล"),
+            getSectionTextByPossibleNames(sections, [
+                "Toxicity Summary"
+            ], "ไม่มีข้อมูล"),
+            getSectionTextByPossibleNames(sections, [
+                "Chronic Effects"
+            ], "ไม่มีข้อมูล"),
+            "ไม่มีข้อมูล"
+        ),
+
+        section5: {
+            extinguishingMedia: extractExtinguishingMedia(
                 getSectionTextByPossibleNames(sections, [
-                    "Ingestion Exposure"
-                ], "-"),
-                "ไม่มีข้อมูล"
+                    "Fire Fighting"
+                ], "ไม่มีข้อมูล")
             ),
-            symptoms: findSectionByPossibleNames(sections, ["Signs and Symptoms"])
+
+            fireHazard: getSectionTextByPossibleNames(sections, [
+                "Fire Hazards"
+            ], "ไม่มีข้อมูล"),
+
+            fireFighting: getSectionTextByPossibleNames(sections, [
+                "Fire Fighting"
+            ], "ไม่มีข้อมูล")
         },
 
         section7: {
@@ -1487,55 +1633,33 @@ function buildSdsData(record) {
         },
 
         section14: {
-            adr: {
-                shippingName: getInfoTextFromSections(sections, "Shipping Name"),
-                unNumber: getInfoTextFromSections(sections, "UN Number"),
-                hazardClass: getInfoTextFromSections(sections, "Hazard Class"),
-                packingGroup: getInfoTextFromSections(sections, "Packing Group"),
-                tankCode: "ไม่มีข้อมูล",
-                environmentalHazard: getInfoTextFromSections(sections, "Marine Pollutant"),
-                specialPrecautions: getInfoTextFromSections(sections, "Special Precautions for User")
-            },
-
-            imdg: {
-                shippingName: getInfoTextFromSections(sections, "Shipping Name"),
-                unNumber: getInfoTextFromSections(sections, "UN Number"),
-                hazardClass: getInfoTextFromSections(sections, "Hazard Class"),
-                packingGroup: getInfoTextFromSections(sections, "Packing Group"),
-                marinePollutant: getInfoTextFromSections(sections, "Marine Pollutant"),
-                specialPrecautions: getInfoTextFromSections(sections, "Special Precautions for User")
-            },
-
-            iata: {
-                shippingName: getInfoTextFromSections(sections, "Shipping Name"),
-                unNumber: getInfoTextFromSections(sections, "UN Number"),
-                hazardClass: getInfoTextFromSections(sections, "Hazard Class"),
-                packingGroup: getInfoTextFromSections(sections, "Packing Group"),
-                environmentalHazard: getInfoTextFromSections(sections, "Marine Pollutant"),
-                specialPrecautions: getInfoTextFromSections(sections, "Special Precautions for User")
-            },
-
-            adnr: {
-                shippingName: getInfoTextFromSections(sections, "Shipping Name"),
-                unNumber: getInfoTextFromSections(sections, "UN Number"),
-                hazardClass: getInfoTextFromSections(sections, "Hazard Class"),
-                packingGroup: getInfoTextFromSections(sections, "Packing Group"),
-                environmentalHazard: getInfoTextFromSections(sections, "Marine Pollutant"),
-                specialPrecautions: getInfoTextFromSections(sections, "Special Precautions for User")
-            }
+            adr: buildTransportMode(sections, [
+                "ADR", "ADR/RID", "Road Transport", "Transport by Road"
+            ]),
+            imdg: buildTransportMode(sections, [
+                "IMDG", "Sea Transport", "Transport by Sea", "Maritime"
+            ]),
+            iata: buildTransportMode(sections, [
+                "IATA", "Air Transport", "Transport by Air", "ICAO/IATA"
+            ]),
+            adnr: buildTransportMode(sections, [
+                "ADNR", "ADN", "Inland Waterway", "Transport by Inland Waterway"
+            ])
         },
 
         section15: {
             regulatory: getFirstNonDash(
                 getSectionTextByPossibleNames(sections, [
-                    "FDA Requirements"
-                ], "ไม่มีข้อมูล"),
+                    "Regulatory Information"
+                ], ""),
+
                 getSectionTextByPossibleNames(sections, [
                     "EPA Chemical Lists"
-                ], "ไม่มีข้อมูล"),
+                ], ""),
+
                 getSectionTextByPossibleNames(sections, [
-                    "Regulatory Information"
-                ], "ไม่มีข้อมูล")
+                    "FDA Requirements"
+                ], "")
             )
         },
 
@@ -1543,7 +1667,7 @@ function buildSdsData(record) {
             fullHStatements: getSectionListByPossibleNames(sections, [
                 "GHS Hazard Statements"
             ]),
-            references: "ไม่มีข้อมูล"
+            references: `PubChem Compound Summary for ${record.RecordTitle}, CID ${record.RecordNumber} – https://pubchem.ncbi.nlm.nih.gov/compound/${record.RecordNumber}`
         }
     };
 }
@@ -1909,7 +2033,7 @@ function removeDuplicateSentences(text = "") {
 function limitText(text = "", maxLength = 500) {
     const clean = normalizeText(text);
     if (clean.length <= maxLength) return clean;
-    return clean.slice(0, maxLength).trim() + "...";
+    return clean.slice(0, maxLength).trim();
 }
 
 function getSectionListCleaned(sections = [], names = []) {
@@ -1990,10 +2114,10 @@ function populatePrintSds(data, record) {
     setText("first_aid_symptoms", data.section4.symptoms);
     setText("first_aid_medical_attention", data.firstAidMedicalAttention);
 
-    setText("fire_fighting_extinguishing_media", data.fireFightingExtinguishingMedia);
-    setText("fire_fighting_specific_hazards", data.fireFightingSpecificHazards);
-    setText("fire_fighting_advice", data.fireFightingAdvice);
-    setText("fire_fighting_additional_info", data.fireFightingAdditionalInfo);
+    setText("fire_fighting_extinguishing_media", data.section5.extinguishingMedia);
+    setText("fire_fighting_specific_hazards", data.section5.fireHazard);
+    setText("fire_fighting_advice", data.section5.fireFighting);
+    setText("fire_fighting_additional_info", "");
     setText(
         "sec1_use_restrictions",
         limitText(data.section1?.useAndRestrictions || "ไม่มีข้อมูล", 400)
@@ -2003,7 +2127,7 @@ function populatePrintSds(data, record) {
 
     setHtml("ghs_pictograms", pictogramInfo ? renderPictogramsFromInfo(pictogramInfo) : "<p>ไม่มีข้อมูล</p>");
     setHtml("ghs_hazard_statements", hazardInfo ? renderListFromInfo(hazardInfo) : "<p>ไม่มีข้อมูล</p>");
-
+    setText("section4_2", data.section4_2 || "ไม่มีข้อมูล");
     setText("sec6_personal_precautions", data.section6?.personalPrecautions);
     setText("sec6_protective_equipment", data.section6?.protectiveEquipment);
     setHtml(
