@@ -935,7 +935,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             await wait(500);
             const waitingScreen = document.getElementsByClassName('waitingScreen')[0];
             if (waitingScreen) waitingScreen.style.display = "none";
-            window.print();
+            wait(5000).then(() => {
+                window.print();
+            })
         }
     }
 });
