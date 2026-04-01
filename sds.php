@@ -5,7 +5,7 @@
  * Version: 1.0
  * Author: Jirakit Pawnsakunrungrot
  * Author URI: https://www.linkedin.com/in/sunny-jirakit
- * * Plugin URI: https://github.com/sunny420x/thai-sds-document-generator
+ * Plugin URI: https://github.com/sunny420x/thai-sds-document-generator
  */
 
 //Deny access from URL.
