@@ -901,7 +901,7 @@ function scrollToBottomThenPrint() {
         const scrollTop = window.scrollY + window.innerHeight;
         const pageHeight = document.documentElement.scrollHeight;
 
-        if (scrollTop >= pageHeight) {
+        if (Math.floor(window.scrollY / pageHeight * 100) >= 85) {
             clearInterval(timer);
 
             // small delay to allow final rendering
