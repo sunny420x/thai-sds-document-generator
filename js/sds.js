@@ -47,6 +47,11 @@ async function loadCompound() {
     const menuList = document.getElementById("menuList");
     const name = document.getElementById("chemical_name").value.trim();
 
+    if(name == "" || name == null) {
+        alert("โปรดกรอกชื่อสารเคมี หรือ CAS Number หรือ สูตรเคมี");
+        return;
+    }
+
     if (document.getElementById("menuElement")) {
         document.getElementById("menuElement").style.display = "block"
     }
@@ -111,16 +116,19 @@ async function loadCompound() {
 
         //Check and add onclick attribute.
         if (document.getElementById('translateBtn')) {
+            document.getElementById('translateBtn').style.opacity = 1
             if (!document.getElementById('translateBtn').hasAttribute('onclick')) {
                 document.getElementById('translateBtn').setAttribute("onclick", "setTimeout(triggerTranslateEnglishThenThai, 1000)");
             }
         }
         if (document.getElementById('printPageBtn')) {
+            document.getElementById('printPageBtn').style.opacity = 1
             if (!document.getElementById('printPageBtn').hasAttribute('onclick')) {
                 document.getElementById('printPageBtn').setAttribute("onclick", "printPage()");
             }
         }
         if (document.getElementById('officialPrintPageBtn')) {
+            document.getElementById('officialPrintPageBtn').style.opacity = 1
             if (!document.getElementById('officialPrintPageBtn').hasAttribute('onclick')) {
                 document.getElementById('officialPrintPageBtn').setAttribute("onclick", "officialPrintPage()");
             }
