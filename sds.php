@@ -51,7 +51,7 @@ function worldchem_sds_menu() {
 
 function sds_setting_page() {
     ?>
-    <div class="wrap">
+    <div class="wrap" style="background: #fff; padding: 20px; border-radius: 10px; margin-top: 20px;">
         <h1>ตั้งค่าระบบออกเอกสาร SDS</h1>
         <p>จัดการระบบแสดงปุ่มออกเอกสาร SDS ในสินค้า สามารถกำหนดประเภทสินค้าที่ไม่ต้องแสดงปุ่มออกเอกสาร คำที่ต้องตัดออกจากชื่อสินค้า และอื่น ๆ ได้</p>
         <hr>
@@ -77,11 +77,15 @@ function sds_setting_page() {
                     </tr>
                     <tr>
                         <td><strong>ประเภทสินค้าที่ไม่ต้องแสดงปุ่มออกเอกสาร SDS</strong></td>
-                        <td><textarea name="sds_exclude_categories" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_categories', 'เครื่องมือวิทยาศาสตร์, บรรจุภัณฑ์')); ?></textarea></td>
+                        <td><textarea name="sds_exclude_categories" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_categories', "เครื่องมือวิทยาศาสตร์\nบรรจุภัณฑ์")); ?></textarea></td>
                     </tr>
                     <tr>
                         <td><strong>คำที่ต้องตัดออกจากชื่อสินค้า</strong></td>
-                        <td><textarea name="sds_exclude_words" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_words', 'USP Grade,Food Grade,AR Grade,Technical Grade,BP Grade,China,USA,(จีน),(ไทย),(ญี่ปุ่น),เกรด')); ?></textarea></td>
+                        <td><textarea name="sds_exclude_words" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_words', "USP Grade\nFood Grade\nAR Grade\nTechnical Grade\nBP Grade\nChina\nUSA\n(จีน)\n(ไทย)\n(ญี่ปุ่น)\nเกรด")); ?></textarea></td>
+                    </tr>
+                    <tr>
+                        <td><strong>ไม่ต้องแสดงปุ่มหากสินค้าขึ้นต้นด้วย</strong></td>
+                        <td><textarea name="sds_exclude_prefixes" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_prefixes', 'ชุด')); ?></textarea></td>
                     </tr>
                     <tr>
                         <td><strong>เนื้อหาปุ่ม</strong></td>
@@ -103,6 +107,7 @@ function sds_settings_init() {
     register_setting('sds_settings_group', 'sds_exclude_words');
     register_setting('sds_settings_group', 'sds_btn_name');
     register_setting('sds_settings_group', 'sds_enable_btn');
+    register_setting('sds_settings_group', 'sds_exclude_prefixes');
 }
 
 add_action( 'woocommerce_single_product_summary', 'add_custom_sds_button', 35 );
@@ -123,6 +128,18 @@ function add_custom_sds_button() {
 
     $exclude_categories = explode("\n", trim(get_option('sds_exclude_categories', "เครื่องมือวิทยาศาสตร์\nบรรจุภัณฑ์")));
     $exclude_categories = array_map('trim', $exclude_categories);
+
+    $exclude_prefixes = array_map('trim', explode("\n", trim(get_option('sds_exclude_prefixes', "ชุด"))));
+
+    // 2. วนลูปเช็คว่าชื่อสินค้าขึ้นต้นด้วยคำไหนในลิสต์บ้าง
+    foreach ( $exclude_prefixes as $prefix ) {
+        if ( empty($prefix) ) continue;
+        
+        // ถ้าเจอคำที่กำหนดอยู่หน้าสุด (ตำแหน่ง 0) ให้หยุดทำงานทันที
+        if ( mb_strpos( $title, $prefix ) === 0 ) {
+            return;
+        }
+    }
 
     // 2. เช็คว่าสินค้าอยู่ในหมวดหมู่ใดหมวดหมู่หนึ่งในลิสต์นี้หรือไม่
     if ( has_term( $exclude_categories, 'product_cat', $product_id ) ) {
