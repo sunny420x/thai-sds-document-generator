@@ -123,7 +123,7 @@ function add_custom_sds_button() {
     $title = $product->get_title();
     $product_id = $product->get_id();
     
-    // 1. หาคำในวงเล็บก่อน
+    // หาคำในวงเล็บก่อน
     preg_match('/\((.*?)\)/', $title, $matches);
 
     $exclude_categories = explode("\n", trim(get_option('sds_exclude_categories', "เครื่องมือวิทยาศาสตร์\nบรรจุภัณฑ์")));
@@ -131,17 +131,17 @@ function add_custom_sds_button() {
 
     $exclude_prefixes = array_map('trim', explode("\n", trim(get_option('sds_exclude_prefixes', "ชุด"))));
 
-    // 2. วนลูปเช็คว่าชื่อสินค้าขึ้นต้นด้วยคำไหนในลิสต์บ้าง
+    // วนลูปเช็คว่าชื่อสินค้าขึ้นต้นด้วยคำไหนในลิสต์บ้าง
     foreach ( $exclude_prefixes as $prefix ) {
         if ( empty($prefix) ) continue;
-        
+
         // ถ้าเจอคำที่กำหนดอยู่หน้าสุด (ตำแหน่ง 0) ให้หยุดทำงานทันที
-        if ( mb_strpos( $title, $prefix ) === 0 ) {
+        if ( mb_strpos( $title, $prefix ) === 0) {
             return;
         }
     }
 
-    // 2. เช็คว่าสินค้าอยู่ในหมวดหมู่ใดหมวดหมู่หนึ่งในลิสต์นี้หรือไม่
+    // เช็คว่าสินค้าอยู่ในหมวดหมู่ใดหมวดหมู่หนึ่งในลิสต์นี้หรือไม่
     if ( has_term( $exclude_categories, 'product_cat', $product_id ) ) {
         return;
     }
@@ -156,7 +156,7 @@ function add_custom_sds_button() {
         $q_param = trim( preg_replace( '/\s*ขนาด.*/u', '', $title ) );
     }
 
-    // 2. รายการคำที่ "ต้องลบออก" (เติมเพิ่มได้เรื่อยๆ ใน array นี้ครับ)
+    // รายการคำที่ "ต้องลบออก" (เติมเพิ่มได้เรื่อยๆ ใน array นี้ครับ)
     $words_to_remove = explode("\n", trim(get_option('sds_exclude_words', "USP Grade\nFood Grade\nAR Grade\nTechnical Grade\nBP Grade\nChina\nUSA\n(จีน)\n(ไทย)\n(ญี่ปุ่น)\nเกรด")));
     $words_to_remove = array_map('trim', $words_to_remove);
 
@@ -171,7 +171,9 @@ function add_custom_sds_button() {
 
     $q_param = trim($q_param);
 
-    // 3. สร้าง URL และปุ่ม (เหมือนเดิม)
+    if($q_param === '') return;
+
+    // สร้าง URL และปุ่ม
     $base_url = "https://www.worldchemical.co.th/official-sds-print/";
     $final_url = add_query_arg( array(
         'q'         => $q_param,
