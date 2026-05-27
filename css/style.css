@@ -1,5 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap');
-
 .section {
     border: 1px solid #ddd;
     border-radius: 10px;
@@ -83,9 +82,7 @@ a {
 
 #result {
     flex: 1;
-
     &.no-border {
-
         .section {
             border: 0 !important;
         }
@@ -104,7 +101,10 @@ a {
     margin-top: 13px;
 }
 
-.entry-content, .post-inner, #primary, #main {
+.entry-content,
+.post-inner,
+#primary,
+#main {
     overflow: visible !important;
 }
 
@@ -155,7 +155,7 @@ a {
     z-index: 21;
 }
 
-.stay-inline > p {
+.stay-inline>p {
     display: inline-block;
     margin: 0 10px 6px 0;
     white-space: nowrap;
@@ -202,7 +202,6 @@ a {
     font-family: 'Sarabun', sans-serif !important;
     font-size: 16px !important;
     color: #000 !important;
-
     /* IE and Edge */
     -ms-overflow-style: none;
     /* Firefox */
@@ -227,6 +226,7 @@ a {
     font-size: 18px;
     line-height: 30px;
 }
+
 .official_print .space {
     padding-left: 50px;
 }

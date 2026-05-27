@@ -181,10 +181,11 @@ function add_custom_sds_button() {
         'translate' => 'yes',
         'official'  => 'yes'
     ), $base_url );
-
-    echo '<div class="sds-button-container" style="margin: 20px 0;">';
-    echo '<a href="' . esc_url( $final_url ) . '" target="_blank" class="btn btn-danger">';
-    echo get_option('sds_btn_name', 'พิมพ์เอกสาร SDS สำหรับ'). ' ' . esc_html( $q_param );
-    echo '</a>';
-    echo '</div>';
+    ?>
+    <div class="sds-button-container" style="margin: 20px 0;">
+        <a href="<?=esc_url( $final_url );?>" target="_blank">
+        <?=get_option('sds_btn_name', 'พิมพ์เอกสาร SDS สำหรับ'). ' ' . esc_html( $q_param );?>
+        </a>
+    </div>
+<?php
 }

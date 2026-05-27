@@ -886,9 +886,7 @@ async function triggerTranslateEnglishThenThai() {
 
     const combo = await waitForTranslateCombo();
     if (!combo) return false;
-
-    console.log("triggerTranslateEnglishThenThai is called");
-
+    
     // บังคับออกจากไทยก่อน
     setGoogleTranslateLanguage('en');
     await wait(1500);
