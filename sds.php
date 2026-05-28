@@ -100,6 +100,9 @@ function sds_setting_page() {
         .white-label-zone h1,p {
             padding: 0 20px;
         }
+        .leftside a.button {
+            border: 0;
+        }
     </style>
     <div class="white-label-zone no-print">
         <span style="padding: 60px 10px 60px 40px;float: left;font-size: 60px;">📄</span>
