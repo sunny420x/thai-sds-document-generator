@@ -172,49 +172,43 @@ function sds_setting_page() {
                 } elseif(isset($_GET['option']) && $_GET['option'] == "replace_product_name") {
                     if (isset($_POST['saveProfile'])) {
                         $profiles = get_option('replace_lists', array());
-                        $profile_name_to_find = $_POST['name'];
-                        $found = false;
+                        $id = sanitize_text_field($_POST['id']);
 
                         foreach ($profiles as &$profile) {
-                            if ($profile['name'] === $profile_name_to_find) {
+                            if ((string)$profile['id'] === (string)$id) {
+                                $profile['id'] = $profile['id'];
                                 $profile['name'] = sanitize_text_field($_POST['name']);
                                 $profile['replace_with'] = sanitize_text_field($_POST['replace_with']);
-
-                                $found = true;
                                 break;
                             }
                         }
 
-                        if (!$found) {
-                            $profiles[] = array(
-                                'name' => sanitize_text_field($_POST['name']),
-                                'replace_with' => sanitize_text_field($_POST['replace_with']),
-                            );
-                        }
-
                         update_option('replace_lists', $profiles);
-                        wp_redirect(admin_url('admin.php?page=sds-settings'));
+                        wp_redirect(admin_url('admin.php?page=sds-settings&option=replace_product_name'));
                         exit;
                     }
 
                     if (isset($_POST['newProfile'])) {
+                        $profiles = get_option('replace_lists', array());
+
                         $profiles[] = array(
+                            'id' => rand(),
                             'name' => sanitize_text_field($_POST['name']),
                             'replace_with' => sanitize_text_field($_POST['replace_with']),
                         );
 
                         update_option('replace_lists', $profiles);
-                        wp_redirect(admin_url('admin.php?page=sds-settings'));
+                        wp_redirect(admin_url('admin.php?page=sds-settings&option=replace_product_name'));
                         exit;
                     }
 
                     if (isset($_POST['deleteProfile'])) {
                         $profiles = get_option('replace_lists', array());
-                        $target_name = $_POST['name'];
+                        $id = sanitize_text_field($_POST['id']);
                         $found = false;
 
                         foreach ($profiles as $index => $profile) {
-                            if ($profile['name'] === $target_name) {
+                            if ((string)$profile['id'] === (string)$id) {
                                 unset($profiles[$index]);
                                 $found = true;
                                 break;
@@ -225,7 +219,7 @@ function sds_setting_page() {
                             $profiles = array_values($profiles);
 
                             update_option('replace_lists', $profiles);
-                            wp_redirect(admin_url('admin.php?page=sds-settings'));
+                            wp_redirect(admin_url('admin.php?page=sds-settings&option=replace_product_name'));
                             exit;
                         }
                     }
@@ -246,6 +240,8 @@ function sds_setting_page() {
                                 ?>
                                 <form action="" method="post">
                                     <tr>
+                                        <input type="hidden" name="id" value="<?=$row['id']?>">
+                                        <td><?=$row['id']?></td>
                                         <td><input type="text" value="<?=$row['name']?>" name="name" style="width: 100%;"></td>
                                         <td><input type="text" value="<?=$row['replace_with']?>" name="replace_with" style="width: 100%;"></td>
                                         <td>
@@ -301,7 +297,7 @@ function sds_settings_init() {
     register_setting('sds_settings_group', 'sds_btn_name');
     register_setting('sds_settings_group', 'sds_enable_btn');
     register_setting('sds_settings_group', 'sds_exclude_prefixes');
-    register_setting('sds_settings_group', 'replace_lists');
+    register_setting('sds_replace_keyword_group', 'replace_lists');
 }
 
 add_action( 'woocommerce_single_product_summary', 'add_custom_sds_button', 35 );
