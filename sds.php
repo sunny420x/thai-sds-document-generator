@@ -228,6 +228,7 @@ function sds_setting_page() {
                 <div style="padding: 25px 25px 25px 25px;">
                     <table class="wp-list-table widefat fixed striped">
                         <thead>
+                            <th>#</th>
                             <th>รายการ</th>
                             <th>แทนที่ด้วย</th>
                             <th>จัดการ</th>
@@ -255,6 +256,7 @@ function sds_setting_page() {
                                 ?>
                                 <form action="" method="post">
                                     <tr>
+                                        <td></td>
                                         <td><input type="text" name="name" style="width: 100%;"></td>
                                         <td><input type="text" name="replace_with" style="width: 100%;"></td>
                                         <td><button class="button" name="newProfile" type="submit">เพิ่มโปรไฟล์ใหม่</button></td>
