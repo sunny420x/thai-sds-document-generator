@@ -348,20 +348,17 @@ function add_custom_sds_button() {
         $q_param = trim( preg_replace( '/\s*ขนาด.*/u', '', $title ) );
     }
 
-    // รายการคำที่ "ต้องลบออก" (เติมเพิ่มได้เรื่อยๆ ใน array นี้ครับ)
     $words_to_remove = explode("\n", trim(get_option('sds_exclude_words', "USP Grade\nFood Grade\nAR Grade\nTechnical Grade\nBP Grade\nChina\nUSA\n(จีน)\n(ไทย)\n(ญี่ปุ่น)\nเกรด")));
     $words_to_remove = array_map('trim', $words_to_remove);
+    foreach ( $words_to_remove as $word ) {
+        $q_param = trim( str_ireplace( $word, '', $q_param ) );
+    }
 
     $word_to_replace = get_option("replace_lists");
     foreach ( $word_to_replace as $word ) {
         $q_param = trim( str_ireplace($word['name'], $word['replace_with'], $q_param) );
     }
 
-    // วนลูปสั่งลบคำที่ไม่อยากได้ออก
-    foreach ( $words_to_remove as $word ) {
-        // ใช้ str_ireplace เพื่อให้ไม่สนใจตัวพิมพ์เล็ก-ใหญ่ (Case-insensitive)
-        $q_param = trim( str_ireplace( $word, '', $q_param ) );
-    }
 
     // ลบเปอร์เซ็นเช่น 80% 98% ออก
     $q_param = preg_replace('/\d+(\.\d+)?\s*%/u', '', $q_param);
