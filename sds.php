@@ -51,53 +51,246 @@ function worldchem_sds_menu() {
 
 function sds_setting_page() {
     ?>
-    <div class="wrap" style="background: #fff; padding: 20px; border-radius: 10px; margin-top: 20px;">
-        <h1>ตั้งค่าระบบออกเอกสาร SDS</h1>
-        <p>จัดการระบบแสดงปุ่มออกเอกสาร SDS ในสินค้า สามารถกำหนดประเภทสินค้าที่ไม่ต้องแสดงปุ่มออกเอกสาร คำที่ต้องตัดออกจากชื่อสินค้า และอื่น ๆ ได้</p>
-        <hr>
-        <h2>ปุ่มออกเอกสาร SDS ในหน้าสินค้า</h2>
-        <form action="options.php" method="post">
-            <?php
-            settings_fields('sds_settings_group');
-            ?>
-            <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
-                <thead>
-                    <tr>
-                        <th>จัดการ</th>
-                        <th>ตั้งค่า</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>แสดงปุ่มออกเอกสาร SDS ในหน้าสินค้าของ WooCommerce</strong></td>
-                        <td><select name="sds_enable_btn" class="form-select">
-                            <option value="yes" <?php if(esc_attr(get_option('sds_enable_btn', 'yes')) == "yes") { ?>selected<?php } ?>>เปิดใช้งาน</option>
-                            <option value="no" <?php if(esc_attr(get_option('sds_enable_btn', 'yes')) == "no") { ?>selected<?php } ?>>ปิดใช้งาน</option>
-                        </select></td>
-                    </tr>
-                    <tr>
-                        <td><strong>ประเภทสินค้าที่ไม่ต้องแสดงปุ่มออกเอกสาร SDS</strong></td>
-                        <td><textarea name="sds_exclude_categories" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_categories', "เครื่องมือวิทยาศาสตร์\nบรรจุภัณฑ์")); ?></textarea></td>
-                    </tr>
-                    <tr>
-                        <td><strong>คำที่ต้องตัดออกจากชื่อสินค้า</strong></td>
-                        <td><textarea name="sds_exclude_words" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_words', "USP Grade\nFood Grade\nAR Grade\nTechnical Grade\nBP Grade\nChina\nUSA\n(จีน)\n(ไทย)\n(ญี่ปุ่น)\nเกรด")); ?></textarea></td>
-                    </tr>
-                    <tr>
-                        <td><strong>ไม่ต้องแสดงปุ่มหากสินค้าขึ้นต้นด้วย</strong></td>
-                        <td><textarea name="sds_exclude_prefixes" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_prefixes', 'ชุด')); ?></textarea></td>
-                    </tr>
-                    <tr>
-                        <td><strong>เนื้อหาปุ่ม</strong></td>
-                        <td><input type="text" name="sds_btn_name" style="width: 500px;" value="<?php echo esc_attr(get_option('sds_btn_name', 'พิมพ์เอกสาร SDS สำหรับ')); ?>" /></td>
-                    </tr>
-                </tbody>
-            </table>
-            <?php submit_button('บันทึกการเปลี่ยนแปลง'); ?>
-            <p>Github Repository: <a href="https://github.com/sunny420x/thai-sds-document-generator" target="_blank">github.com/sunny420x/thai-sds-document-generator</a></p>
-        </form>
+        <style>
+        ul.popup_profile_list {
+            margin: 0;
+        }
+        ul.popup_profile_list li {
+            padding: 10px 20px;
+            font-size: 14px;
+            background: #f8f8f8;
+            color: #111;
+            transition: .2s ease-in-out;
+            margin: 0;
+        }
+        ul.popup_profile_list li:hover {
+            background: #fff;
+            cursor: pointer;
+        }
+        .leftside {
+            width: 350px;
+            background: #f8f8f8;
+            height: max-content;
+        }
+        .leftside h1 {
+            background: #009FE3;
+            color: #fff;
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 0;
+        }
+        .container {
+            width: 1200px;
+            background: #fff;
+        }
+        .container h1 {
+            background: #555;
+            color: #fff;
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 0;
+        }
+        .white-label-zone {
+            width: calc(100% + 20px);
+            height: auto;
+            background: #fff;
+            display: flex;
+            margin: 0 0 0 -20px;
+        }
+        .white-label-zone h1,p {
+            padding: 0 20px;
+        }
+    </style>
+    <div class="white-label-zone no-print">
+        <span style="padding: 60px 10px 60px 40px;float: left;font-size: 60px;">📄</span>
+        <div style="padding: 20px 0;">
+            <h1>WordPress SDS Document Generator</h1>
+            <p>ระบบสร้างและออกเอกสาร Safety Data Sheet
+            <br>
+            <strong>Github Repository:</strong> <a href="https://github.com/sunny420x/thai-sds-document-generator" target="_blank">https://github.com/sunny420x/thai-sds-document-generator</a>
+            </p>
+        </div>
     </div>
-    <?php
+    <div class="wrap">
+        <div style="display: flex;">
+            <div class="leftside">
+                <h1>SDS Document Generator</h1>
+                <div style="padding: 10px 20px 20px 20px;">
+                    <a href="admin.php?page=sds-settings&option=general" class="button" style="width: 100%;">ตั้งค่าทั่วไป</a>
+                    <a href="admin.php?page=sds-settings&option=replace_product_name" class="button" style="width: 100%;">แทนที่ชื่อสารเคมี</a>
+                </div>
+            </div>
+            <div class="container">
+                <?php
+                if(isset($_GET['option']) && $_GET['option'] == "general") {
+                ?>
+                <h1>ตั้งค่าระบบออกเอกสาร SDS</h1>
+                <div style="padding: 0 25px 25px 25px;">
+                    <p>จัดการระบบแสดงปุ่มออกเอกสาร SDS ในสินค้า สามารถกำหนดประเภทสินค้าที่ไม่ต้องแสดงปุ่มออกเอกสาร คำที่ต้องตัดออกจากชื่อสินค้า และอื่น ๆ ได้</p>
+                    <h2>ปุ่มออกเอกสาร SDS ในหน้าสินค้า</h2>
+                    <form action="options.php" method="post">
+                        <?php
+                        settings_fields('sds_settings_group');
+                        ?>
+                        <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+                            <thead>
+                                <tr>
+                                    <th>จัดการ</th>
+                                    <th>ตั้งค่า</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>แสดงปุ่มออกเอกสาร SDS ในหน้าสินค้าของ WooCommerce</strong></td>
+                                    <td><select name="sds_enable_btn" class="form-select">
+                                        <option value="yes" <?php if(esc_attr(get_option('sds_enable_btn', 'yes')) == "yes") { ?>selected<?php } ?>>เปิดใช้งาน</option>
+                                        <option value="no" <?php if(esc_attr(get_option('sds_enable_btn', 'yes')) == "no") { ?>selected<?php } ?>>ปิดใช้งาน</option>
+                                    </select></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ประเภทสินค้าที่ไม่ต้องแสดงปุ่มออกเอกสาร SDS</strong></td>
+                                    <td><textarea name="sds_exclude_categories" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_categories', "เครื่องมือวิทยาศาสตร์\nบรรจุภัณฑ์")); ?></textarea></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>คำที่ต้องตัดออกจากชื่อสินค้า</strong></td>
+                                    <td><textarea name="sds_exclude_words" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_words', "USP Grade\nFood Grade\nAR Grade\nTechnical Grade\nBP Grade\nChina\nUSA\n(จีน)\n(ไทย)\n(ญี่ปุ่น)\nเกรด")); ?></textarea></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ไม่ต้องแสดงปุ่มหากสินค้าขึ้นต้นด้วย</strong></td>
+                                    <td><textarea name="sds_exclude_prefixes" style="width: 500px; height: 200px;"><?php echo esc_attr(get_option('sds_exclude_prefixes', 'ชุด')); ?></textarea></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>เนื้อหาปุ่ม</strong></td>
+                                    <td><input type="text" name="sds_btn_name" style="width: 500px;" value="<?php echo esc_attr(get_option('sds_btn_name', 'พิมพ์เอกสาร SDS สำหรับ')); ?>" /></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <?php submit_button('บันทึกการเปลี่ยนแปลง'); ?>
+                    </form>
+                </div>
+                <?php
+                } elseif(isset($_GET['option']) && $_GET['option'] == "replace_product_name") {
+                    if (isset($_POST['saveProfile'])) {
+                        $profiles = get_option('replace_lists', array());
+                        $profile_name_to_find = $_POST['name'];
+                        $found = false;
+
+                        foreach ($profiles as &$profile) {
+                            if ($profile['name'] === $profile_name_to_find) {
+                                $profile['name'] = sanitize_text_field($_POST['name']);
+                                $profile['replace_with'] = sanitize_text_field($_POST['replace_with']);
+
+                                $found = true;
+                                break;
+                            }
+                        }
+
+                        if (!$found) {
+                            $profiles[] = array(
+                                'name' => sanitize_text_field($_POST['name']),
+                                'replace_with' => sanitize_text_field($_POST['replace_with']),
+                            );
+                        }
+
+                        update_option('replace_lists', $profiles);
+                        wp_redirect(admin_url('admin.php?page=sds-settings'));
+                        exit;
+                    }
+
+                    if (isset($_POST['newProfile'])) {
+                        $profiles[] = array(
+                            'name' => sanitize_text_field($_POST['name']),
+                            'replace_with' => sanitize_text_field($_POST['replace_with']),
+                        );
+
+                        update_option('replace_lists', $profiles);
+                        wp_redirect(admin_url('admin.php?page=sds-settings'));
+                        exit;
+                    }
+
+                    if (isset($_POST['deleteProfile'])) {
+                        $profiles = get_option('replace_lists', array());
+                        $target_name = $_POST['name'];
+                        $found = false;
+
+                        foreach ($profiles as $index => $profile) {
+                            if ($profile['name'] === $target_name) {
+                                unset($profiles[$index]);
+                                $found = true;
+                                break;
+                            }
+                        }
+
+                        if ($found) {
+                            $profiles = array_values($profiles);
+
+                            update_option('replace_lists', $profiles);
+                            wp_redirect(admin_url('admin.php?page=sds-settings'));
+                            exit;
+                        }
+                    }
+                ?>
+                <h1>แทนที่ชื่อสารเคมี</h1>
+                <div style="padding: 25px 25px 25px 25px;">
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <th>รายการ</th>
+                            <th>แทนที่ด้วย</th>
+                            <th>จัดการ</th>
+                        </thead>
+                        <tbody>
+                            <?php
+                                $replace_list = get_option('replace_lists', array());
+                                
+                                foreach($replace_list as $row) {
+                                ?>
+                                <form action="" method="post">
+                                    <tr>
+                                        <td><input type="text" value="<?=$row['name']?>" name="name" style="width: 100%;"></td>
+                                        <td><input type="text" value="<?=$row['replace_with']?>" name="replace_with" style="width: 100%;"></td>
+                                        <td>
+                                            <button class="button" name="saveProfile" type="submit">บันทึกการเปลี่ยนแปลง</button>
+                                            <button class="button button-primary" name="deleteProfile" type="submit">ลบ</button>
+                                        </td>
+                                    </tr>
+                                </form>
+                                <?php
+                                }
+                                ?>
+                                <form action="" method="post">
+                                    <tr>
+                                        <td><input type="text" name="name" style="width: 100%;"></td>
+                                        <td><input type="text" name="replace_with" style="width: 100%;"></td>
+                                        <td><button class="button" name="newProfile" type="submit">เพิ่มโปรไฟล์ใหม่</button></td>
+                                    </tr>
+                                </form>
+                        </tbody>
+                    </table>
+                </div>
+                <?php
+                } else {
+                ?>
+                <h1>SDS Document Generator</h1>
+                <div style="padding: 0 25px 25px 25px;">
+                    <h2>ระบบนี้คืออะไร ?</h2>
+                    <p>ระบบ SDS Document Generator
+                        คือระบบที่ออกแบบมาสำหรับสร้างและออกเอกสาร Safety Data Sheet สำหรับสินค้าประเภทสารเคมีภายในระบบ WooCommerce บน WordPress โดยระบบต้องการ
+                        ชื่อสินค้าในรูปแบบเช่น โซดาไฟ (Sodium Hydroxide) โดยชื่อสารเคมีภายในวงเล็บจะถือว่าเป็นชื่อสารเคมีของสินค้า โดยลูกค้าจะสามารถคลิกปุ่มภายในหน้าสินค้าสำหรับออกเอกสาร SDS
+                        ของสารเคมีดังกล่าวได้ โดยมีควบรวมกับระบบ Google Translation สามารถแปลเนื้อหาในเอกสารออกมาเป็นภาษาไทยได้อย่างแม่นยำ
+                    </p>
+                    <h2>วิธีการติดตั้ง</h2>
+                    <p>
+                        สามารถติดตั้งปลั้กอินนี้ได้โดยการดาวน์โหลดไฟล์นี้จาก Github หน้านี้ และอัพโหลดลงในหน้า /wp-admin/plugin-install.php หลังจากอัพโหลด 
+                        และเปิดใช้งาน (Activate) ระบบจะทำการสร้างตารางและคอลัมน์ใหม่จากตารางเดิมโดยอัตโนมัติ
+                    </p>
+                </div>
+                <?php
+                }
+                ?>
+            </div>
+        </div>
+    </div>
+<?php
 }
 
 add_action('admin_init', 'sds_settings_init');
@@ -108,6 +301,7 @@ function sds_settings_init() {
     register_setting('sds_settings_group', 'sds_btn_name');
     register_setting('sds_settings_group', 'sds_enable_btn');
     register_setting('sds_settings_group', 'sds_exclude_prefixes');
+    register_setting('sds_settings_group', 'replace_lists');
 }
 
 add_action( 'woocommerce_single_product_summary', 'add_custom_sds_button', 35 );
