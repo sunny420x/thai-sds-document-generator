@@ -354,6 +354,11 @@ function add_custom_sds_button() {
     $words_to_remove = explode("\n", trim(get_option('sds_exclude_words', "USP Grade\nFood Grade\nAR Grade\nTechnical Grade\nBP Grade\nChina\nUSA\n(จีน)\n(ไทย)\n(ญี่ปุ่น)\nเกรด")));
     $words_to_remove = array_map('trim', $words_to_remove);
 
+    $word_to_replace = get_option("replace_lists");
+    foreach ( $word_to_replace as $word ) {
+        $q_param = trim( str_ireplace($word['name'], $word['replace_with'], $q_param) );
+    }
+
     // วนลูปสั่งลบคำที่ไม่อยากได้ออก
     foreach ( $words_to_remove as $word ) {
         // ใช้ str_ireplace เพื่อให้ไม่สนใจตัวพิมพ์เล็ก-ใหญ่ (Case-insensitive)
