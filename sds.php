@@ -100,8 +100,19 @@ function sds_setting_page() {
         .white-label-zone h1,p {
             padding: 0 20px;
         }
-        .leftside a.button {
-            border: 0;
+        .leftside a {
+            padding: 10px 20px;
+            font-size: 14px;
+            background: #f8f8f8;
+            color: #000;
+            transition: .2s ease-in-out;
+            display: block;
+            width: 100%;
+            text-decoration: none;
+        }
+        .leftside a:hover {
+            background: #fff;
+            cursor: pointer;
         }
     </style>
     <div class="white-label-zone no-print">
@@ -118,10 +129,8 @@ function sds_setting_page() {
         <div style="display: flex;">
             <div class="leftside">
                 <h1>SDS Document Generator</h1>
-                <div style="padding: 10px 20px 20px 20px;">
-                    <a href="admin.php?page=sds-settings&option=general" class="button" style="width: 100%;">⚙️ ตั้งค่าทั่วไป</a>
-                    <a href="admin.php?page=sds-settings&option=replace_product_name" class="button" style="width: 100%;">🧪 แทนที่ชื่อสารเคมี</a>
-                </div>
+                <a href="admin.php?page=sds-settings&option=general" style="width: 100%;">⚙️ ตั้งค่าทั่วไป</a>
+                <a href="admin.php?page=sds-settings&option=replace_product_name" style="width: 100%;">🧪 แทนที่ชื่อสารเคมี</a>
             </div>
             <div class="container">
                 <?php
