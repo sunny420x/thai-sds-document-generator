@@ -375,7 +375,6 @@ function add_custom_sds_button() {
     $final_url = add_query_arg( array(
         'q'         => $q_param,
         'print'     => 'yes',
-        'translate' => 'yes',
         'official'  => 'yes'
     ), $base_url );
     ?>
