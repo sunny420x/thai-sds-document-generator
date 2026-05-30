@@ -129,12 +129,12 @@ function sds_setting_page() {
         <div style="display: flex;">
             <div class="leftside">
                 <h1>SDS Document Generator</h1>
-                <a href="admin.php?page=sds-settings&option=general" style="width: 100%;">⚙️ ตั้งค่าทั่วไป</a>
+                <a href="admin.php?page=sds-settings&option=single_product_sds_link" style="width: 100%;">📄 ปุ่มแสดงเอกสารในหน้า Single Product</a>
                 <a href="admin.php?page=sds-settings&option=replace_product_name" style="width: 100%;">🧪 แทนที่ชื่อสารเคมี</a>
             </div>
             <div class="container">
                 <?php
-                if(isset($_GET['option']) && $_GET['option'] == "general") {
+                if(isset($_GET['option']) && $_GET['option'] == "single_product_sds_link") {
                 ?>
                 <h1>ตั้งค่าระบบออกเอกสาร SDS</h1>
                 <div style="padding: 25px 25px 25px 25px;">
