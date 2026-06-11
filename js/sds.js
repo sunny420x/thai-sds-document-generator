@@ -1097,16 +1097,17 @@ document.addEventListener('DOMContentLoaded', async function () {
                 await wait(1500);
                 replaceTranslatedWords();
                 await wait(1500);
+                await scrollToBottomThenPrint(async () => {
+                    const snapshotHtml = printResult ? printResult.innerHTML : printOfficialResult ? printOfficialResult.innerHTML : '';
+                    if (!snapshotLoaded && query && snapshotHtml) {
+                        await saveSdsSnapshot(query, snapshotHtml);
+                    }
+                });
             } else {
                 await wait(500);
+                window.print();
             }
 
-            await scrollToBottomThenPrint(async () => {
-                const snapshotHtml = printResult ? printResult.innerHTML : printOfficialResult ? printOfficialResult.innerHTML : '';
-                if (!snapshotLoaded && query && snapshotHtml) {
-                    await saveSdsSnapshot(query, snapshotHtml);
-                }
-            });
         } else {
             await wait(500);
             const waitingScreen = document.getElementsByClassName('waitingScreen')[0];
