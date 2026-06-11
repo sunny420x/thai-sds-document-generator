@@ -167,11 +167,14 @@ async function loadCompound() {
     const menuList = document.getElementById("menuList");
     const inputField = document.getElementById("chemical_name");
     const name = inputField ? inputField.value.trim() : (urlParams.get('q') || '').trim();
+    const isOfficial = urlParams.get('official') === "yes";
 
-    const snapshotHtml = await fetchSdsSnapshot(name);
-    if (snapshotHtml) {
-        renderSnapshotFromCache(snapshotHtml);
-        return;
+    if(isOfficial) {
+        const snapshotHtml = await fetchSdsSnapshot(name);
+        if (snapshotHtml) {
+            renderSnapshotFromCache(snapshotHtml);
+            return;
+        }
     }
 
     if(name == "" || name == null) {
@@ -226,7 +229,6 @@ async function loadCompound() {
         if (!recordRes.ok) throw new Error("พบปัญหาในการดึงข้อมูลจาก PubChem");
 
         const data = await recordRes.json();
-        const isOfficial = urlParams.get('official') === "yes";
 
         if (isOfficial) {
             const record = data?.Record;
