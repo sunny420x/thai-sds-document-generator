@@ -304,6 +304,11 @@ function sds_setting_page() {
 }
 
 add_action('admin_init', 'sds_settings_init');
+register_activation_hook(__FILE__, 'sds_create_snapshot_table_on_activation');
+add_action('wp_ajax_nopriv_sds_get_snapshot', 'sds_ajax_get_snapshot');
+add_action('wp_ajax_sds_get_snapshot', 'sds_ajax_get_snapshot');
+add_action('wp_ajax_nopriv_sds_save_snapshot', 'sds_ajax_save_snapshot');
+add_action('wp_ajax_sds_save_snapshot', 'sds_ajax_save_snapshot');
 
 function sds_settings_init() {
     register_setting('sds_settings_group', 'sds_exclude_categories');
@@ -312,6 +317,100 @@ function sds_settings_init() {
     register_setting('sds_settings_group', 'sds_enable_btn');
     register_setting('sds_settings_group', 'sds_exclude_prefixes');
     register_setting('sds_replace_keyword_group', 'replace_lists');
+}
+
+function sds_create_snapshot_table_on_activation() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'sds_snapshots';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $sql = "CREATE TABLE {$table_name} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        query varchar(255) NOT NULL,
+        snapshot longtext NOT NULL,
+        updated_at datetime NOT NULL,
+        PRIMARY KEY  (id),
+        UNIQUE KEY query (query)
+    ) {$charset_collate};";
+
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+}
+
+function sds_normalize_snapshot_query($query) {
+    $query = trim(preg_replace('/\s+/u', ' ', (string) $query));
+    return mb_strtolower($query, 'UTF-8');
+}
+
+function sds_get_snapshot($query) {
+    $query = sds_normalize_snapshot_query($query);
+    if ($query === '') {
+        return null;
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'sds_snapshots';
+    return $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT * FROM {$table_name} WHERE query = %s OR LOWER(query) = %s",
+            $query,
+            $query
+        ),
+        ARRAY_A
+    );
+}
+
+function sds_save_snapshot($query, $snapshot) {
+    $query = sds_normalize_snapshot_query($query);
+    if ($query === '') {
+        return false;
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'sds_snapshots';
+    $exists = sds_get_snapshot($query);
+
+    $data = array(
+        'query' => $query,
+        'snapshot' => $snapshot,
+        'updated_at' => current_time('mysql'),
+    );
+
+    if ($exists) {
+        return $wpdb->update($table_name, $data, array('query' => $query), array('%s', '%s', '%s'), array('%s')) !== false;
+    }
+
+    return $wpdb->insert($table_name, $data, array('%s', '%s', '%s')) !== false;
+}
+
+function sds_ajax_get_snapshot() {
+    $query = isset($_GET['q']) ? sanitize_text_field($_GET['q']) : '';
+    if (!$query) {
+        wp_send_json_error('invalid_query');
+    }
+
+    $snapshot = sds_get_snapshot($query);
+    if (!$snapshot) {
+        wp_send_json_error('not_found');
+    }
+
+    wp_send_json_success(array('snapshot' => $snapshot['snapshot']));
+}
+
+function sds_ajax_save_snapshot() {
+    $query = isset($_POST['q']) ? sanitize_text_field(wp_unslash($_POST['q'])) : '';
+    $snapshot = isset($_POST['snapshot']) ? wp_kses_post(wp_unslash($_POST['snapshot'])) : '';
+
+    if (!$query || !$snapshot) {
+        wp_send_json_error('invalid_data');
+    }
+
+    $saved = sds_save_snapshot($query, $snapshot);
+    if (!$saved) {
+        wp_send_json_error('save_failed');
+    }
+
+    wp_send_json_success();
 }
 
 add_action( 'woocommerce_single_product_summary', 'add_custom_sds_button', 35 );

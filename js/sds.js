@@ -1,7 +1,127 @@
 let menu = [];
 let headingIdCounter = 0;
-let translated = false
+let translated = false;
+let snapshotLoaded = false;
+let snapshotLoadingPromise = null;
+let compoundLoadingPromise = Promise.resolve();
 const urlParams = new URLSearchParams(window.location.search);
+const ajaxPathPrefix = window.location.pathname.replace(/\/+$/, '').replace(/\/[^\/]+$/, '');
+const sdsAjaxUrl = `${window.location.origin}${ajaxPathPrefix || ''}/wp-admin/admin-ajax.php`;
+
+function normalizeSdsQuery(query) {
+    return String(query || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+async function fetchSdsSnapshot(query) {
+    const normalizedQuery = normalizeSdsQuery(query);
+    if (!normalizedQuery) return null;
+    const url = `${sdsAjaxUrl}?action=sds_get_snapshot&q=${encodeURIComponent(normalizedQuery)}`;
+    snapshotLoaded = false;
+    snapshotLoadingPromise = (async () => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                console.debug('SDS snapshot fetch failed status', response.status, url);
+                return null;
+            }
+            const json = await response.json();
+            if (!json.success) {
+                console.debug('SDS snapshot not found or error', json, url);
+                return null;
+            }
+            console.debug('SDS snapshot loaded', normalizedQuery, json.data.snapshot?.length);
+            return json.data.snapshot;
+        } catch (err) {
+            console.warn('SDS snapshot fetch failed', err, url);
+            return null;
+        }
+    })();
+
+    const snapshot = await snapshotLoadingPromise;
+    snapshotLoadingPromise = null;
+    return snapshot;
+}
+
+async function saveSdsSnapshot(query, snapshotHtml) {
+    const normalizedQuery = normalizeSdsQuery(query);
+    if (!normalizedQuery || !snapshotHtml) return;
+    try {
+        await fetch(sdsAjaxUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                action: 'sds_save_snapshot',
+                q: normalizedQuery,
+                snapshot: snapshotHtml
+            })
+        });
+    } catch (err) {
+        console.warn('SDS snapshot save failed', err);
+    }
+}
+
+function buildMenuFromHtml(container) {
+    menu = [];
+    if (!container) return;
+    const headings = container.querySelectorAll('h2, h3, h4, h5, h6');
+    headings.forEach(heading => {
+        let id = heading.id;
+        if (!id) {
+            id = makeSafeId(heading.textContent || '');
+            heading.id = id;
+        }
+        menu.push({
+            id,
+            title: heading.textContent || '',
+            level: Number(heading.tagName.substring(1))
+        });
+    });
+}
+
+function setupTranslateAndPrintButtons() {
+    if (document.getElementById('translateBtn')) {
+        document.getElementById('translateBtn').style.opacity = 1;
+        if (!document.getElementById('translateBtn').hasAttribute('onclick')) {
+            document.getElementById('translateBtn').setAttribute('onclick', 'setTimeout(triggerTranslateEnglishThenThai, 1000)');
+        }
+    }
+    if (document.getElementById('printPageBtn')) {
+        document.getElementById('printPageBtn').style.opacity = 1;
+        if (!document.getElementById('printPageBtn').hasAttribute('onclick')) {
+            document.getElementById('printPageBtn').setAttribute('onclick', 'printPage()');
+        }
+    }
+    if (document.getElementById('officialPrintPageBtn')) {
+        document.getElementById('officialPrintPageBtn').style.opacity = 1;
+        if (!document.getElementById('officialPrintPageBtn').hasAttribute('onclick')) {
+            document.getElementById('officialPrintPageBtn').setAttribute('onclick', 'officialPrintPage()');
+        }
+    }
+}
+
+function renderSnapshotFromCache(snapshotHtml) {
+    const result = document.getElementById('result');
+    const officialResult = document.getElementById('official_result');
+    const target = result || officialResult;
+    if (!target) return;
+
+    target.innerHTML = snapshotHtml;
+    target.setAttribute('lang', 'th');
+    translated = true;
+    snapshotLoaded = true;
+    menu = [];
+    headingIdCounter = 0;
+    buildMenuFromHtml(target);
+    createMenu();
+    setupTranslateAndPrintButtons();
+
+    const waitingScreen = document.querySelector('.waitingScreen');
+    if (waitingScreen) {
+        waitingScreen.style.display = 'none';
+    }
+}
 
 //Get query param and load compound.
 document.addEventListener('DOMContentLoaded', function () {
@@ -10,8 +130,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const inputField = document.getElementById("chemical_name");
         if (inputField) {
             inputField.value = decodeURIComponent(query);
-            loadCompound();
         }
+        compoundLoadingPromise = loadCompound();
     }
 });
 
@@ -45,7 +165,14 @@ function updateQuery(query) {
 async function loadCompound() {
     const result = document.getElementById("result");
     const menuList = document.getElementById("menuList");
-    const name = document.getElementById("chemical_name").value.trim();
+    const inputField = document.getElementById("chemical_name");
+    const name = inputField ? inputField.value.trim() : (urlParams.get('q') || '').trim();
+
+    const snapshotHtml = await fetchSdsSnapshot(name);
+    if (snapshotHtml) {
+        renderSnapshotFromCache(snapshotHtml);
+        return;
+    }
 
     if(name == "" || name == null) {
         alert("โปรดกรอกชื่อสารเคมี หรือ CAS Number หรือ สูตรเคมี");
@@ -896,32 +1023,54 @@ async function triggerTranslateEnglishThenThai() {
     await wait(2000);
 
     translated = true;
+
+    await wait(2000);
+
+    const isPrintFlow = urlParams.get('print') === "yes";
+    if (!isPrintFlow) {
+        const query = document.getElementById('chemical_name')?.value?.trim() || urlParams.get('q') || '';
+        const snapshotHtml = result ? result.innerHTML : official_result ? official_result.innerHTML : '';
+        if (query && snapshotHtml) {
+            saveSdsSnapshot(query, snapshotHtml);
+        }
+    }
+
     return true;
 }
 
-function scrollToBottomThenPrint() {
-    const step = window.innerHeight;
-    const delay = 200;
-    window.scrollTo(0, 0);
-    const timer = setInterval(() => {
-        const scrollTop = window.scrollY + window.innerHeight;
-        const pageHeight = document.documentElement.scrollHeight;
+function scrollToBottomThenPrint(onScrolledComplete) {
+    return new Promise(resolve => {
+        const step = window.innerHeight;
+        const delay = 200;
+        window.scrollTo(0, 0);
+        const timer = setInterval(() => {
+            const scrollTop = window.scrollY + window.innerHeight;
+            const pageHeight = document.documentElement.scrollHeight;
 
-        if (Math.floor(window.scrollY / pageHeight * 100) >= 85) {
-            clearInterval(timer);
+            if (Math.floor(window.scrollY / pageHeight * 100) >= 85) {
+                clearInterval(timer);
 
-            // small delay to allow final rendering
-            setTimeout(() => {
-                document.getElementsByClassName('waitingScreen')[0].style.display = "none";
-                window.print();
-            }, 1000);
+                // small delay to allow final rendering
+                setTimeout(async () => {
+                    const waitingScreen = document.getElementsByClassName('waitingScreen')[0];
+                    if (waitingScreen) waitingScreen.style.display = "none";
+                    if (typeof onScrolledComplete === 'function') {
+                        await onScrolledComplete();
+                    }
+                    window.print();
+                    resolve();
+                }, 2000);
 
-            return;
-        }
+                return;
+            }
 
-        window.scrollBy(0, step);
-        document.getElementById("translatePercentage").innerHTML = Math.floor(window.scrollY / pageHeight * 100)
-    }, delay);
+            window.scrollBy(0, step);
+            const progressEl = document.getElementById("translatePercentage");
+            if (progressEl) {
+                progressEl.innerHTML = Math.floor(window.scrollY / pageHeight * 100);
+            }
+        }, delay);
+    });
 }
 
 //Full Print Page | Unofficial & Official
@@ -933,10 +1082,31 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     if (printCommand) {
         if (translateCommand || isOfficial) {
-            await wait(1000);
-            await triggerTranslateEnglishThenThai();
-            await wait(1500);
-            scrollToBottomThenPrint();
+            await compoundLoadingPromise;
+            if (snapshotLoadingPromise) {
+                await snapshotLoadingPromise;
+            }
+
+            const printResult = document.getElementById("result");
+            const printOfficialResult = document.getElementById("official_result");
+            const query = document.getElementById('chemical_name')?.value?.trim() || urlParams.get('q') || '';
+
+            if (!snapshotLoaded) {
+                await wait(1000);
+                await triggerTranslateEnglishThenThai();
+                await wait(1500);
+                replaceTranslatedWords();
+                await wait(1500);
+            } else {
+                await wait(500);
+            }
+
+            await scrollToBottomThenPrint(async () => {
+                const snapshotHtml = printResult ? printResult.innerHTML : printOfficialResult ? printOfficialResult.innerHTML : '';
+                if (!snapshotLoaded && query && snapshotHtml) {
+                    await saveSdsSnapshot(query, snapshotHtml);
+                }
+            });
         } else {
             await wait(500);
             const waitingScreen = document.getElementsByClassName('waitingScreen')[0];
@@ -948,13 +1118,21 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 });
 
+function replaceTranslatedWords() {
+  const result = document.getElementById("result");
+  if (!result) return;
+
+  result.innerHTML = result.innerHTML
+    .replace(/ชะตากรรม/g, "ผลกระทบ")
+}
+
 function printPage() {
-    const q = document.getElementById("chemical_name").value
+    const q = document.getElementById("chemical_name")?.value?.trim() || urlParams.get('q') || '';
     window.location.href = `/sds-print/?q=${encodeURIComponent(q)}&print=yes&translate=${translated ? "yes" : "no"}&official=no`
 }
 
 function officialPrintPage() {
-    const q = document.getElementById("chemical_name").value
+    const q = document.getElementById("chemical_name")?.value?.trim() || urlParams.get('q') || '';
     window.location.href = `/official-sds-print/?q=${encodeURIComponent(q)}&print=yes&translate=${translated ? "yes" : "no"}&official=yes`
 }
 
