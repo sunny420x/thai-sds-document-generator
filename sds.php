@@ -129,6 +129,7 @@ function sds_setting_page() {
         <div style="display: flex;">
             <div class="leftside">
                 <h1>SDS Document Generator</h1>
+                <a href="admin.php?page=sds-settings&option=snapshot" style="width: 100%;">📝 จัดการ Snapshot</a>
                 <a href="admin.php?page=sds-settings&option=single_product_sds_link" style="width: 100%;">📄 ปุ่มแสดงเอกสารในหน้า Single Product</a>
                 <a href="admin.php?page=sds-settings&option=replace_product_name" style="width: 100%;">🧪 แทนที่ชื่อสารเคมี</a>
             </div>
@@ -277,6 +278,60 @@ function sds_setting_page() {
                         </tbody>
                     </table>
                 </div>
+                <?php
+                } elseif(isset($_GET['option']) && $_GET['option'] == "snapshot" && !isset($_GET['id'])) {
+                ?>
+                <h1>จัดการ Snapshot เอกสาร SDS/MSDS</h1>
+                <div style="padding: 25px 25px 25px 25px;">
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <th>ID</th>
+                            <th>Query</th>
+                            <th>Updated At</th>
+                        </thead>
+                        <tbody>
+                            <?php
+                                global $wpdb;
+                                $table_name = $wpdb->prefix . 'sds_snapshots';
+                                $snapshots = $wpdb->get_results("SELECT * FROM {$table_name} ORDER BY updated_at DESC", ARRAY_A);
+                                
+                                foreach($snapshots as $snapshot) {
+                                ?>
+                                    <tr>
+                                        <td><?=$snapshot['id']?></td>
+                                        <td><a href="admin.php?page=sds-settings&option=snapshot&id=<?=$snapshot['id']?>"><?=$snapshot['query']?></a></td>
+                                        <td><?=$snapshot['updated_at']?></td>
+                                    </tr>
+                                <?php
+                                }
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php
+                } elseif(isset($_GET['option']) && $_GET['option'] == "snapshot" && $_GET['id']) {
+                    global $wpdb;
+                    $table_name = $wpdb->prefix . 'sds_snapshots';
+                    $snapshot = $wpdb->get_row(
+                        $wpdb->prepare("SELECT * FROM {$table_name} WHERE id = %d", intval($_GET['id'])),
+                        ARRAY_A
+                    );
+                ?>
+                <h1>Snapshot Detail</h1>
+                <div style="padding: 25px 25px 25px 25px">
+                    <form action="" method="post">
+                        <textarea name="snapshot" style="width: 100%; height: 400px;"><?php echo esc_textarea($snapshot['snapshot']); ?></textarea>
+                        <button class="button" name="saveSnapshot" type="submit">บันทึกการเปลี่ยนแปลง</button>
+                    </form>
+                </div>
+                <?php
+                if(isset($_POST['saveSnapshot'])) {
+                    $updated_snapshot = isset($_POST['snapshot']) ? wp_kses_post(wp_unslash($_POST['snapshot'])) : '';
+                    sds_save_snapshot($snapshot['query'], $updated_snapshot);
+                    wp_redirect(admin_url('admin.php?page=sds-settings&option=snapshot&id=' . $snapshot['id']));
+                    exit;
+                }
+                ?>
                 <?php
                 } else {
                 ?>
