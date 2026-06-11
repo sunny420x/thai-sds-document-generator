@@ -281,13 +281,14 @@ function sds_setting_page() {
                 <?php
                 } elseif(isset($_GET['option']) && $_GET['option'] == "snapshot" && !isset($_GET['id'])) {
                 ?>
-                <h1>จัดการ Snapshot เอกสาร SDS/MSDS</h1>
+                <h1>📝 จัดการ Snapshot เอกสาร SDS/MSDS</h1>
                 <div style="padding: 25px 25px 25px 25px;">
                     <table class="wp-list-table widefat fixed striped">
                         <thead>
                             <th>ID</th>
                             <th>Query</th>
-                            <th>Updated At</th>
+                            <th>แก้ไขล่าสุดเมื่อ</th>
+                            <th>Actions</th>
                         </thead>
                         <tbody>
                             <?php
@@ -301,15 +302,28 @@ function sds_setting_page() {
                                         <td><?=$snapshot['id']?></td>
                                         <td><a href="admin.php?page=sds-settings&option=snapshot&id=<?=$snapshot['id']?>"><?=$snapshot['query']?></a></td>
                                         <td><?=$snapshot['updated_at']?></td>
+                                        <td>
+                                            <a href="/official-sds-print/?q=<?=$snapshot['query']?>&print=yes&official=yes" class="button" target="_blank">ดู Snapshot</a>
+                                            <a href="admin.php?page=sds-settings&option=snapshot&delete=<?=$snapshot['id']?>" class="button">ลบ</a>
+                                        </td>
                                     </tr>
                                 <?php
                                 }
                             ?>
                         </tbody>
                     </table>
+                    <?php
+                    if(isset($_GET['delete'])) {
+                        global $wpdb;
+                        $table_name = $wpdb->prefix . 'sds_snapshots';
+                        $wpdb->delete($table_name, array('id' => intval($_GET['delete'])), array('%d'));
+                        wp_redirect(admin_url('admin.php?page=sds-settings&option=snapshot'));
+                        exit;
+                    }
+                    ?>
                 </div>
                 <?php
-                } elseif(isset($_GET['option']) && $_GET['option'] == "snapshot" && $_GET['id']) {
+                } elseif(isset($_GET['option']) && $_GET['option'] == "snapshot" && isset($_GET['id'])) {
                     global $wpdb;
                     $table_name = $wpdb->prefix . 'sds_snapshots';
                     $snapshot = $wpdb->get_row(
@@ -317,7 +331,7 @@ function sds_setting_page() {
                         ARRAY_A
                     );
                 ?>
-                <h1>Snapshot Detail</h1>
+                <h1>แก้ไข Snapshot</h1>
                 <div style="padding: 25px 25px 25px 25px">
                     <form action="" method="post">
                         <textarea name="snapshot" style="width: 100%; height: 400px;"><?php echo esc_textarea($snapshot['snapshot']); ?></textarea>
