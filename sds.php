@@ -79,6 +79,23 @@ function sds_setting_page() {
             padding: 10px 20px;
             margin: 0;
         }
+        .leftside a {
+            padding: 10px 20px;
+            font-size: 14px;
+            background: #f8f8f8;
+            color: #000;
+            transition: .2s ease-in-out;
+            display: block;
+            width: 100%;
+            text-decoration: none;
+        }
+        .leftside a.active {
+            background: #fff;
+        }
+        .leftside a:hover {
+            background: #fff;
+            cursor: pointer;
+        }
         .container {
             width: 1200px;
             background: #fff;
@@ -129,9 +146,9 @@ function sds_setting_page() {
         <div style="display: flex;">
             <div class="leftside">
                 <h1>SDS Document Generator</h1>
-                <a href="admin.php?page=sds-settings&option=snapshot" style="width: 100%;">📝 จัดการ Snapshot</a>
-                <a href="admin.php?page=sds-settings&option=single_product_sds_link" style="width: 100%;">📄 ปุ่มแสดงเอกสารในหน้า Single Product</a>
-                <a href="admin.php?page=sds-settings&option=replace_product_name" style="width: 100%;">🧪 แทนที่ชื่อสารเคมี</a>
+                <a href="admin.php?page=sds-settings&option=snapshot" <?php if(isset($_GET['option']) && $_GET['option'] == "snapshot") { echo "class='active'"; } ?>>📝 จัดการ Snapshot</a>
+                <a href="admin.php?page=sds-settings&option=single_product_sds_link" <?php if(isset($_GET['option']) && $_GET['option'] == "single_product_sds_link") { echo "class='active'"; } ?>>📄 ปุ่มแสดงเอกสารในหน้า Single Product</a>
+                <a href="admin.php?page=sds-settings&option=replace_product_name" <?php if(isset($_GET['option']) && $_GET['option'] == "replace_product_name") { echo "class='active'"; } ?>>🧪 แทนที่ชื่อสารเคมี</a>
             </div>
             <div class="container">
                 <?php
