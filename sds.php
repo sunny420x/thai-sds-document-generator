@@ -8,6 +8,7 @@
  * Plugin URI: https://github.com/sunny420x/thai-sds-document-generator
  * GitHub Plugin URI: https://github.com/sunny420x/thai-sds-document-generator
  * Primary Branch: master
+ * Version: 1.0.0
  */
 
 //Deny access from URL.
